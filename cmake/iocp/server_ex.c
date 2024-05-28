@@ -235,7 +235,7 @@ void NetWork(int port)
 				break;
 			}
 		}
-		DWORD res = WSAWaitForMultipleEvents(1, &data->Overlapped.hEvent, 1, 100, 0);
+		DWORD res = WSAWaitForMultipleEvents(1, &data->Overlapped.hEvent, 1, 100, 1);
 		if (res == WSA_WAIT_FAILED)
 		{
 			printf("AcceptEx failed with error: %d\n", WSAGetLastError());
