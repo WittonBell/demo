@@ -143,7 +143,11 @@ func main() {
 		go workThread(hIOCP)
 	}
 
-	defer PostQueuedCompletionStatus(hIOCP, 0, 0, nil)
+	defer func() {
+		for i := 0; i < count; i++ {
+			PostQueuedCompletionStatus(hIOCP, 0, 0, nil)
+		}
+	}()
 
 	for {
 		acceptFd, er := syscall.Socket(syscall.AF_INET, syscall.SOCK_STREAM, syscall.IPPROTO_TCP)
@@ -246,7 +250,7 @@ func workThread(hIOCP syscall.Handle) {
 		ioData := (*IOData)(unsafe.Pointer(pOverlapped))
 		if ioSize == 0 {
 			closeIO(ioData)
-			continue
+			break
 		}
 		ioData.NBytes = ioSize
 		if ioData.isRead {
