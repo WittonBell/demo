@@ -185,15 +185,14 @@ func main() {
 			break
 		}
 		WSAResetEvent(data.Overlapped.HEvent)
-		dwBytes := uint32(0)
 		flag := uint32(0)
-		er = WSAGetOverlappedResult(acceptFd, &data.Overlapped, &dwBytes, true, &flag)
+		er = WSAGetOverlappedResult(acceptFd, &data.Overlapped, &data.NBytes, true, &flag)
 		if er != nil {
 			fmt.Printf("WSAGetOverlappedResult Error:%s", er)
 			closeIO(data)
 			break
 		}
-		if dwBytes == 0 {
+		if data.NBytes == 0 {
 			closeIO(data)
 			continue
 		}
@@ -211,7 +210,7 @@ func main() {
 func postWrite(data *IOData) (err error) {
 	data.isRead = false
 	// 这里输出一下data指针，让运行时不把data给GC掉，否则就会出问题
-	fmt.Printf("%p cli:%d send %s\n", data, data.cliSock, unsafe.String(data.WsaBuf.Buf, data.WsaBuf.Len))
+	fmt.Printf("%p cli:%d send %s\n", data, data.cliSock, unsafe.String(data.WsaBuf.Buf, data.NBytes))
 	err = syscall.WSASend(data.cliSock, &data.WsaBuf, 1, &data.NBytes, 0, &data.Overlapped, nil)
 	if err != nil && !errors.Is(err, syscall.ERROR_IO_PENDING) {
 		fmt.Printf("cli:%d send failed: %s\n", data.cliSock, err)
@@ -249,6 +248,7 @@ func workThread(hIOCP syscall.Handle) {
 			closeIO(ioData)
 			continue
 		}
+		ioData.NBytes = ioSize
 		if ioData.isRead {
 			postWrite(ioData)
 		} else {

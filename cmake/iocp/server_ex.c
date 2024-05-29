@@ -45,7 +45,7 @@ BOOL PostWrite(IoData* data)
 	memset(&data->Overlapped, 0, sizeof(data->Overlapped));
 	data->opCode = IoWRITE;
 	printf("%lld Send %s\n", data->cliSock, data->wsabuf.buf);
-	int nRet = WSASend(data->cliSock, &data->wsabuf, 1, &data->nBytes, 0, &(data->Overlapped), NULL);
+	int nRet = WSASend(data->cliSock, &data->wsabuf, 1, &data->nBytes, 0, &data->Overlapped, NULL);
 	if (nRet == SOCKET_ERROR && (ERROR_IO_PENDING != WSAGetLastError()))
 	{
 		printf("WASSend Failed:%d", WSAGetLastError());
@@ -77,6 +77,7 @@ DWORD WINAPI WorkerThread(HANDLE hIOCP)
 			CloseConn(ctx);
 			continue;
 		}
+		ctx->nBytes = dwIoSize;
 		if (ctx->opCode == IoREAD)
 		{
 			ctx->wsabuf.buf[dwIoSize] = 0;
@@ -244,13 +245,13 @@ void NetWork(int port)
 		}
 		WSAResetEvent(data->Overlapped.hEvent);
 		DWORD flag = 0;
-		BOOL ret = WSAGetOverlappedResult(cliSock, &data->Overlapped, &dwBytes, 1, &flag);
+		BOOL ret = WSAGetOverlappedResult(cliSock, &data->Overlapped, &data->nBytes, 1, &flag);
 		if (!ret)
 		{
 			CloseConn(data);
 			break;
 		}
-		if (dwBytes == 0)
+		if (data->nBytes == 0)
 		{
 			CloseConn(data);
 			continue;
@@ -262,7 +263,7 @@ void NetWork(int port)
 			CloseConn(data);
 			continue;
 		}
-		data->wsabuf.buf[dwBytes] = 0;
+		data->wsabuf.buf[data->nBytes] = 0;
 		PostWrite(data);
 	}
 	for (int i = 0; i < threadCount; ++i)
