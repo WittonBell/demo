@@ -8,4 +8,8 @@
 #include <math.h>
 #include <string.h>
 
+#ifndef _SSIZE_T_DEFINED
+typedef intptr_t ssize_t;
+#endif
+
 #endif

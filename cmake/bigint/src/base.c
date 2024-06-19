@@ -1,17 +1,127 @@
-#include <stdint.h>
-#include <assert.h>
-#include <stdbool.h>
+#include "priv.h"
 #include "nat.h"
 
+const uint8_t ntz8tab[];
+const uint8_t pop8tab[];
+const uint8_t rev8tab[];
+const uint8_t len8tab[];
+
+int Len8(uint8_t x) {
+	return len8tab[x];
+}
+
+int Len16(uint16_t x) {
+	int n = 0;
+	if (x >= 1 << 8U) {
+		x >>= 8U;
+		n = 8U;
+	}
+	return n + len8tab[x];
+}
+
+int Len32(uint32_t x) {
+	int n = 0;
+	if (x >= 1 << 16U) {
+		x >>= 16U;
+		n = 16;
+	}
+	if (x >= 1 << 8U) {
+		x >>= 8U;
+		n += 8;
+	}
+	return n + len8tab[x];
+}
+
+int Len64(uint64_t x) {
+	int n = 0;
+	if (x >= 1ULL << 32U) {
+		x >>= 32U;
+		n = 32;
+	}
+	if (x >= 1ULL << 16U) {
+		x >>= 16U;
+		n += 16;
+	}
+	if (x >= 1ULL << 8U) {
+		x >>= 8U;
+		n += 8;
+	}
+	return n + (int)(len8tab[x]);
+}
+
+int Len(size_t x) {
+	if (UintSize == 32) {
+		return Len32(x);
+	}
+	return Len64(x);
+}
 int LeadingZeros(size_t x) {
-	return UintSize - len64(x);
+	return UintSize - Len(x);
+}
+
+int LeadingZeros8(uint8_t x) {
+	return 8 - Len8(x);
+}
+
+int LeadingZeros16(uint16_t x) {
+	return 16 - Len16(x);
+}
+
+int LeadingZeros32(uint32_t x) {
+	return 32 - Len32(x);
 }
 
 int LeadingZeros64(uint64_t x) {
-	return 64 - len64(x);
+	return 64 - Len64(x);
 }
 
-uint32_t UIntAdd32(uint32_t x, uint32_t y, uint32_t* carray) {
+static const uint64_t deBruijn32 = 0x077CB531;
+static uint8_t deBruijn32tab[32] = {
+	0, 1, 28, 2, 29, 14, 24, 3, 30, 22, 20, 15, 25, 17, 4, 8,
+	31, 27, 13, 23, 21, 19, 16, 7, 26, 12, 18, 6, 11, 5, 10, 9,
+};
+
+static const uint64_t deBruijn64 = 0x03f79d71b4ca8b09;
+static uint8_t deBruijn64tab[64] = {
+	0, 1, 56, 2, 57, 49, 28, 3, 61, 58, 42, 50, 38, 29, 17, 4,
+	62, 47, 59, 36, 45, 43, 51, 22, 53, 39, 33, 30, 24, 18, 12, 5,
+	63, 55, 48, 27, 60, 41, 37, 16, 46, 35, 44, 21, 52, 32, 23, 11,
+	54, 26, 40, 15, 34, 20, 31, 10, 25, 14, 19, 9, 13, 8, 7, 6,
+};
+
+int TrailingZeros8(uint8_t x) {
+	return ntz8tab[x];
+}
+
+int TrailingZeros16(uint16_t x) {
+	if (x == 0) {
+		return 16;
+	}
+	return deBruijn32tab[(uint32_t)(x & -x) * deBruijn32 >> (32 - 5)];
+}
+
+int TrailingZeros32(uint32_t x) {
+	if (x == 0) {
+		return 32;
+	}
+	return deBruijn32tab[(x & -x) * deBruijn32 >> (32 - 5)];
+}
+
+int TrailingZeros64(uint64_t x) {
+	if (x == 0) {
+		return 64;
+	}
+	return deBruijn64tab[(x & -x) * deBruijn64 >> (64 - 6)];
+}
+
+int TrailingZeros(size_t x) {
+	if (UintSize == 32) {
+		return TrailingZeros32(x);
+	}
+	return TrailingZeros64(x);
+}
+
+uint32_t U32Add(uint32_t x, uint32_t y, uint32_t* carray) {
 	uint64_t sum64 = (uint64_t)(x)+(uint64_t)(y);
 	sum64 += *carray;
 	uint32_t sum = (uint32_t)sum64;
@@ -19,31 +129,45 @@ uint32_t UIntAdd32(uint32_t x, uint32_t y, uint32_t* carray) {
 	return sum;
 }
 
-uint64_t UIntAdd64(uint64_t x, uint64_t y, uint64_t* carray) {
+uint64_t U64Add(uint64_t x, uint64_t y, uint64_t* carray) {
 	uint64_t sum = x + y + *carray;
 	*carray = ((x & y) | ((x | y) & (~sum))) >> 63U;
 	return sum;
 }
 
-uint32_t UIntSub32(uint32_t a, uint32_t b, uint32_t* borrow) {
+size_t UIntAdd(size_t x, size_t y, size_t* carry) {
+	if (UintSize == 32) {
+		return U32Add(x, y, carry);
+	}
+	return U64Add(x, y, carry);
+}
+
+uint32_t U32Sub(uint32_t a, uint32_t b, uint32_t* borrow) {
 	uint32_t diff = a - b - *borrow;
 	*borrow = ((~a & b) | (~(a ^ b) & diff)) >> 31U;
 	return diff;
 }
 
-uint64_t UIntSub64(uint64_t x, uint64_t y, uint64_t* borrow) {
+uint64_t U64Sub(uint64_t x, uint64_t y, uint64_t* borrow) {
 	uint64_t diff = x - y - *borrow;
 	*borrow = ((~x & y) | (~(x ^ y) & diff)) >> 63U;
 	return diff;
 }
 
-uint32_t UIntMul32(uint32_t x, uint32_t y, uint32_t* hi) {
+size_t UIntSub(size_t x, size_t y, size_t* borrow) {
+	if (UintSize == 32) {
+		return U32Sub(x, y, borrow);
+	}
+	return U64Sub(x, y, borrow);
+}
+
+uint32_t U32Mul(uint32_t x, uint32_t y, uint32_t* hi) {
 	uint64_t tmp = (uint64_t)x * (uint64_t)y;
 	*hi = tmp >> 32U;
 	return (uint32_t)tmp;
 }
 
-uint64_t UIntMul64(uint64_t x, uint64_t y, uint64_t* hi) {
+uint64_t U64Mul(uint64_t x, uint64_t y, uint64_t* hi) {
 	const uint64_t mask32 = (1ULL << 32U) - 1;
 	uint64_t x0 = x & mask32;
 	uint64_t x1 = x >> 32U;
@@ -58,9 +182,14 @@ uint64_t UIntMul64(uint64_t x, uint64_t y, uint64_t* hi) {
 	return x * y;
 }
 
-uint32_t UIntDiv32(uint64_t x, uint32_t y, uint32_t* rem) {
-	uint32_t hi = x >> 32U;
-	uint32_t lo = (uint32_t)x;
+size_t UIntMul(size_t x, size_t y, size_t* hi) {
+	if (UintSize == 32) {
+		return U32Mul(x, y, hi);
+	}
+	return U64Mul(x, y, hi);
+}
+
+uint32_t U32Div(uint32_t hi, uint32_t lo, uint32_t y, uint32_t* rem) {
 	assert(y != 0); // divideError
 	assert(y <= hi); // "overflowError"
 	uint64_t z = (uint64_t)hi << 32U | (uint64_t)lo;
@@ -68,7 +197,7 @@ uint32_t UIntDiv32(uint64_t x, uint32_t y, uint32_t* rem) {
 	return z / (uint64_t)y;
 }
 
-uint64_t UIntDiv64(uint64_t hi, uint64_t lo, uint64_t y, uint64_t* rem) {
+uint64_t U64Div(uint64_t hi, uint64_t lo, uint64_t y, uint64_t* rem) {
 	assert(y != 0); // divideError
 	assert(y <= hi); // "overflowError"
 	if (hi == 0) {
@@ -113,19 +242,33 @@ uint64_t UIntDiv64(uint64_t hi, uint64_t lo, uint64_t y, uint64_t* rem) {
 	return q1 * two32 + q0;
 }
 
-uint32_t UIntRem32(uint64_t x, uint32_t y) {
+size_t UIntDiv(size_t hi, size_t lo, size_t y, size_t* rem) {
+	if (UintSize == 32) {
+		return U32Div(hi, lo, y, rem);
+	}
+	return U64Div(hi, lo, y, rem);
+}
+
+uint32_t U32Rem(uint32_t hi, uint32_t lo, uint32_t y) {
 	uint32_t rem = 0;
-	UIntDiv32(x, y, &rem);
+	U32Div(hi, lo, y, &rem);
 	return rem;
 }
 
-uint64_t UIntRem64(uint64_t hi, uint64_t lo, uint64_t y) {
+uint64_t U64Rem(uint64_t hi, uint64_t lo, uint64_t y) {
 	uint64_t rem = 0;
-	UIntDiv64(hi, lo, y, &rem);
+	U64Div(hi, lo, y, &rem);
 	return rem;
 }
 
-const uint8_t ntz8tab[] = "" \
+size_t UIntRem(size_t hi, size_t lo, size_t y) {
+	if (UintSize == 32) {
+		return U32Rem(hi, lo, y);
+	}
+	return U64Rem(hi, lo, y);
+}
+
+const uint8_t ntz8tab[] =
 "\x08\x00\x01\x00\x02\x00\x01\x00\x03\x00\x01\x00\x02\x00\x01\x00" \
 "\x04\x00\x01\x00\x02\x00\x01\x00\x03\x00\x01\x00\x02\x00\x01\x00" \
 "\x05\x00\x01\x00\x02\x00\x01\x00\x03\x00\x01\x00\x02\x00\x01\x00" \
@@ -143,7 +286,7 @@ const uint8_t ntz8tab[] = "" \
 "\x05\x00\x01\x00\x02\x00\x01\x00\x03\x00\x01\x00\x02\x00\x01\x00" \
 "\x04\x00\x01\x00\x02\x00\x01\x00\x03\x00\x01\x00\x02\x00\x01\x00";
 
-const uint8_t pop8tab[] = "" \
+const uint8_t pop8tab[] =
 "\x00\x01\x01\x02\x01\x02\x02\x03\x01\x02\x02\x03\x02\x03\x03\x04" \
 "\x01\x02\x02\x03\x02\x03\x03\x04\x02\x03\x03\x04\x03\x04\x04\x05" \
 "\x01\x02\x02\x03\x02\x03\x03\x04\x02\x03\x03\x04\x03\x04\x04\x05" \
@@ -161,7 +304,7 @@ const uint8_t pop8tab[] = "" \
 "\x03\x04\x04\x05\x04\x05\x05\x06\x04\x05\x05\x06\x05\x06\x06\x07" \
 "\x04\x05\x05\x06\x05\x06\x06\x07\x05\x06\x06\x07\x06\x07\x07\x08";
 
-const uint8_t rev8tab[] = "" \
+const uint8_t rev8tab[] =
 "\x00\x80\x40\xc0\x20\xa0\x60\xe0\x10\x90\x50\xd0\x30\xb0\x70\xf0" \
 "\x08\x88\x48\xc8\x28\xa8\x68\xe8\x18\x98\x58\xd8\x38\xb8\x78\xf8" \
 "\x04\x84\x44\xc4\x24\xa4\x64\xe4\x14\x94\x54\xd4\x34\xb4\x74\xf4" \
@@ -179,7 +322,7 @@ const uint8_t rev8tab[] = "" \
 "\x07\x87\x47\xc7\x27\xa7\x67\xe7\x17\x97\x57\xd7\x37\xb7\x77\xf7" \
 "\x0f\x8f\x4f\xcf\x2f\xaf\x6f\xef\x1f\x9f\x5f\xdf\x3f\xbf\x7f\xff";
 
-static const uint8_t len8tab[] = "" \
+const uint8_t len8tab[] =
 "\x00\x01\x02\x02\x03\x03\x03\x03\x04\x04\x04\x04\x04\x04\x04\x04" \
 "\x05\x05\x05\x05\x05\x05\x05\x05\x05\x05\x05\x05\x05\x05\x05\x05" \
 "\x06\x06\x06\x06\x06\x06\x06\x06\x06\x06\x06\x06\x06\x06\x06\x06" \
@@ -197,34 +340,3 @@ static const uint8_t len8tab[] = "" \
 "\x08\x08\x08\x08\x08\x08\x08\x08\x08\x08\x08\x08\x08\x08\x08\x08" \
 "\x08\x08\x08\x08\x08\x08\x08\x08\x08\x08\x08\x08\x08\x08\x08\x08";
 
-int len64(uint64_t x) {
-	int n = 0;
-	if (x >= 1ULL << 32U) {
-		x >>= 32U;
-		n = 32;
-	}
-	if (x >= 1ULL << 16U) {
-		x >>= 16U;
-		n += 16;
-	}
-	if (x >= 1ULL << 8U) {
-		x >>= 8U;
-		n += 8;
-	}
-	return n + (int)(len8tab[x]);
-}
-
-static const uint64_t deBruijn64 = 0x03f79d71b4ca8b09;
-static uint8_t deBruijn64tab[64] = {
-	0, 1, 56, 2, 57, 49, 28, 3, 61, 58, 42, 50, 38, 29, 17, 4,
-	62, 47, 59, 36, 45, 43, 51, 22, 53, 39, 33, 30, 24, 18, 12, 5,
-	63, 55, 48, 27, 60, 41, 37, 16, 46, 35, 44, 21, 52, 32, 23, 11,
-	54, 26, 40, 15, 34, 20, 31, 10, 25, 14, 19, 9, 13, 8, 7, 6,
-};
-
-int TrailingZeros64(uint64_t x) {
-	if (x == 0) {
-		return 64;
-	}
-	return deBruijn64tab[(x & -x) * deBruijn64 >> (64 - 6)];
-}
