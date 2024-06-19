@@ -46,5 +46,8 @@ BigInt* BigIntMul(BigInt* x, BigInt* y);
 BigInt* BigIntDiv(BigInt* x, BigInt* y);
 
 char* BigInt2String(BigInt* x);
+char* BigInt2HexStr(BigInt* x);
+// base 取值范围 [2,62]
+char* BigInt2Text(BigInt* x, int base);
 
 #endif

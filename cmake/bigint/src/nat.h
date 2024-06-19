@@ -48,6 +48,7 @@ void addAt(nat z, nat x, ssize_t i);
 // u/v, 返回值为商，余数为r
 nat natDiv(nat u, nat v, nat* r);
 nat natRem(nat u, nat v);
+nat natDivW(nat x, Word y, Word* r);
 
 divisor* divisors(int64_t m, Word b, int64_t ndigits, Word bb, int* divisorNum);
 char* natI2a(nat x, bool neg, int base);

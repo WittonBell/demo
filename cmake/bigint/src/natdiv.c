@@ -62,7 +62,7 @@ static Word natDivWVW(nat z, Word xn, nat x, Word y) {
 	return r;
 }
 
-static nat natDivW(nat x, Word y, Word* r) {
+nat natDivW(nat x, Word y, Word* r) {
 	ssize_t m = x.len;
 	assert(y != 0);
 	if (y == 1) {

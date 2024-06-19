@@ -67,7 +67,7 @@ nat natSqr(nat x) {
 	// 未完
 }
 
-divisor* divisors(int64_t m, Word b, int64_t ndigits, Word bb, int* divisorNum) {
+divisor* divisors(int64_t m, Word b, ssize_t ndigits, Word bb, int* divisorNum) {
 	if (leafSize == 0 || m <= leafSize) {
 		return NULL;
 	}
@@ -109,22 +109,63 @@ divisor* divisors(int64_t m, Word b, int64_t ndigits, Word bb, int* divisorNum) 
 static const int MaxBase = 10 + ('z' - 'a' + 1) + ('Z' - 'A' + 1);
 static const char* digits = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
-static Word maxPow(Word b, uint64_t* n) {
+static Word maxPow(Word b, ssize_t* n) {
 	Word p = b;
 	*n = 1;
-	for (uint64_t max = _M / b; p < max;) {
+	for (ssize_t max = _M / b; p < max;) {
 		p *= b;
 		++*n;
 	}
 	return p;
 }
 
-void convertWords(nat q, char* s, Word b, int64_t ndigits, Word bb, divisor * table, int tableNum) {
+void convertWords(nat q, char* s, ssize_t slen, Word b, int64_t ndigits, Word bb, divisor* table, int tableNum) {
 	if (table != NULL) {
 		int index = tableNum - 1;
 		while (q.len > leafSize) {
-
+			ssize_t maxLen = natBitLen(q);
+			ssize_t minLen = maxLen >> 1;
+			while (index > 0 && table[index - 1].nbits > minLen) {
+				--index;
+			}
+			if (table[index].nbits >= maxLen && natCmp(table[index].bbb, q) >= 0) {
+				--index;
+				assert(index >= 0);
+			}
+			nat r;
+			q = natDiv(q, table[index].bbb, &r);
+			ssize_t h = slen - table[index].ndigits;
+			convertWords(r, &s[h], table[index].ndigits, b, ndigits, bb, table, index);
+			s = &s[h];
 		}
+	}
+	ssize_t i = slen;
+	if (b == 10) {
+		while (q.len > 0) {
+			Word r = 0;
+			q = natDivW(q, bb, &r);
+			for (ssize_t j = 0; j < ndigits && i > 0; j++) {
+				--i;
+				Word t = r / 10;
+				s[i] = '0' + (r - t * 10);
+				r = t;
+			}
+		}
+	}
+	else {
+		while (q.len > 0) {
+			Word r = 0;
+			q = natDivW(q, bb, &r);
+			for (ssize_t j = 0; j < ndigits && i > 0; j++) {
+				--i;
+				s[i] = digits[r % b];
+				r /= b;
+			}
+		}
+	}
+	while (i > 0) {
+		--i;
+		s[i] = '0';
 	}
 }
 
@@ -143,7 +184,7 @@ char* natI2a(nat x, bool neg, int base) {
 	if (neg) {
 		++i;
 	}
-	int64_t slen = i;
+	ssize_t slen = i+1;
 	char* s = calloc(1, slen);
 	if (s == NULL) {
 		return NULL;
@@ -183,12 +224,12 @@ char* natI2a(nat x, bool neg, int base) {
 		}
 	}
 	else {
-		uint64_t ndigits = 0;
+		ssize_t ndigits = 0;
 		Word bb = maxPow(b, &ndigits);
 		int tableNum = 0;
 		divisor* table = divisors(x.len, b, ndigits, bb, &tableNum);
 		nat q = natCopy(x);
-		convertWords(q, s, b, ndigits, bb, table, tableNum);
+		convertWords(q, s, slen, b, ndigits, bb, table, tableNum);
 		i = 0;
 		while (s[i] == '0') {
 			++i;
@@ -199,5 +240,6 @@ char* natI2a(nat x, bool neg, int base) {
 		s[i] = '-';
 	}
 	memmove(s, &s[i], slen - i);
+	s[slen-1] = 0;
 	return s;
 }

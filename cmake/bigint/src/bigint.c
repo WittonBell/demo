@@ -137,3 +137,11 @@ BigInt* BigIntDiv(BigInt* x, BigInt* y) {
 char* BigInt2String(BigInt* x) {
 	return natI2a(x->abs, x->neg, 10);
 }
+
+char* BigInt2HexStr(BigInt* x) {
+	return natI2a(x->abs, x->neg, 16);
+}
+
+char* BigInt2Text(BigInt* x, int base) {
+	return natI2a(x->abs, x->neg, base);
+}

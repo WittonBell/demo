@@ -11,6 +11,21 @@ int main(int argc, char* argv[]) {
 	BigInt* m1 = BigIntMul(x, y);
 	BigInt* q1 = BigIntDiv(m1, x);
 	char* p = BigInt2String(zz);
+	if (strcmp(p, "27000000000000000000")) {
+		printf("error\n");
+	}
+	printf("%s\n", p);
+	free(p);
+	p = BigInt2HexStr(zz);
+	if (strcmp(p, "176b344f2a78c0000")) {
+		printf("error\n");
+	}
+	printf("%s\n", p);
+	free(p);
+	p = BigInt2Text(zz, 62);
+	if (strcmp(p, "wawhL6Tc75u")) {
+		printf("error\n");
+	}
 	printf("%s\n", p);
 	free(p);
 	BigIntFree(x);
