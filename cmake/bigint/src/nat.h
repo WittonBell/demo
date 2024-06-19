@@ -44,13 +44,15 @@ nat natMul(nat x, nat y);
 Word mulWW(Word x, Word y, Word* z1);
 Word mulAddVWW(nat z, nat x, Word y, Word r);
 void addAt(nat z, nat x, ssize_t i);
+nat natSqr(nat x);
 
 // u/v, 返回值为商，余数为r
 nat natDiv(nat u, nat v, nat* r);
 nat natRem(nat u, nat v);
 nat natDivW(nat x, Word y, Word* r);
+Word shlVU(nat z, nat x, size_t s);
 
-divisor* divisors(int64_t m, Word b, int64_t ndigits, Word bb, int* divisorNum);
+divisor* divisors(int64_t m, Word b, ssize_t ndigits, Word bb, int* divisorNum);
 char* natI2a(nat x, bool neg, int base);
 
 int Len(size_t x);

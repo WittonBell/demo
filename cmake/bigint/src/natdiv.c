@@ -248,7 +248,7 @@ static nat natDivRecursive(nat q, nat u, nat v) {
 	return z;
 }
 
-static Word shlVU(nat z, nat x, size_t s) {
+Word shlVU(nat z, nat x, size_t s) {
 	if (s == 0) {
 		natCopy2(z, x);
 		return 0;

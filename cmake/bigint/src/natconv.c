@@ -43,6 +43,15 @@ static nat natExpNN(nat x, nat y, nat m, bool slow) {
 		}
 		return natCopy(x);
 	}
+	// y > 1
+	if (m.len != 0) {
+		nat z = natNewLen(m.len);
+		if (y.len > 1 && !slow) {
+			if ((m.data[0] & 1) == 1) {
+
+			}
+		}
+	}
 }
 
 nat natExpWW(Word x, Word y) {
@@ -51,20 +60,6 @@ nat natExpWW(Word x, Word y) {
 	nat yy = natNew(y);
 	nat z = natExpNN(xx, yy, m, false);
 	return z;
-}
-
-nat natSqr(nat x) {
-	ssize_t n = x.len;
-	if (n == 0) {
-		return natNewLen(0);
-	}
-	if (n == 1) {
-		Word d = x.data[0];
-		nat z = natNewLen(2);
-		z.data[0] = mulWW(d, d, &z.data[1]);
-		return natNorm(z);
-	}
-	// 未完
 }
 
 divisor* divisors(int64_t m, Word b, ssize_t ndigits, Word bb, int* divisorNum) {
