@@ -29,6 +29,7 @@ void natCopy2(nat dst, nat src);
 nat natPart(nat p, ssize_t from, ssize_t to);
 nat natNorm(nat p);
 int natCmp(nat x, nat y);
+void natClear(nat x);
 void natFree(nat* p);
 
 nat natAdd(nat x, nat y);
@@ -39,8 +40,10 @@ nat natSub(nat x, nat y);
 Word subVW(nat z, nat x, Word y);
 Word subVV(nat z, nat x, nat y);
 
+nat natMul(nat x, nat y);
 Word mulWW(Word x, Word y, Word* z1);
 Word mulAddVWW(nat z, nat x, Word y, Word r);
+void addAt(nat z, nat x, ssize_t i);
 
 // u/v, 返回值为商，余数为r
 nat natDiv(nat u, nat v, nat* r);

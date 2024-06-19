@@ -29,7 +29,7 @@ void natSet(nat t, ssize_t index, Word value) {
 
 nat natCopy(nat x) {
 	nat z = natNewLen(x.len);
-	memcpy(z.data, x.data, x.len);
+	memcpy(z.data, x.data, x.len * sizeof(Word));
 	z.cap = x.len;
 	z.len = x.len;
 	return z;
@@ -83,6 +83,12 @@ int natCmp(nat x, nat y) {
 		return 1;
 	}
 	return 0;
+}
+
+void natClear(nat x) {
+	for (ssize_t i = 0; i < x.len; ++i) {
+		x.data[i] = 0;
+	}
 }
 
 void natFree(nat *p) {

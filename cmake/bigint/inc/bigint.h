@@ -40,10 +40,10 @@ BigInt* BigIntNewI(int64_t v);
 BigInt* BigIntNewU(uint64_t v);
 void    BigIntFree(BigInt* t);
 
-BigInt* BigIntAdd(BigInt* a, BigInt* b);
-BigInt* BigIntSub(BigInt* a, BigInt* b);
-BigInt* BigIntMul(BigInt* a, BigInt* b);
-BigInt* BigIntDiv(BigInt* a, BigInt* b);
+BigInt* BigIntAdd(BigInt* x, BigInt* y);
+BigInt* BigIntSub(BigInt* x, BigInt* y);
+BigInt* BigIntMul(BigInt* x, BigInt* y);
+BigInt* BigIntDiv(BigInt* x, BigInt* y);
 
 char* BigInt2String(BigInt* x);
 

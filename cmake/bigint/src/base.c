@@ -217,7 +217,7 @@ uint32_t U32Div(uint32_t hi, uint32_t lo, uint32_t y, uint32_t* rem) {
 
 uint64_t U64Div(uint64_t hi, uint64_t lo, uint64_t y, uint64_t* rem) {
 	assert(y != 0); // divideError
-	assert(y <= hi); // "overflowError"
+	assert(y > hi); // "overflowError"
 	if (hi == 0) {
 		*rem = lo % y;
 		return lo / y;
@@ -230,8 +230,17 @@ uint64_t U64Div(uint64_t hi, uint64_t lo, uint64_t y, uint64_t* rem) {
 
 	uint64_t yn1 = y >> 32U;
 	uint64_t yn0 = y & mask32;
-	uint64_t un32 = hi << s | lo >> (64 - s);
-	uint64_t un10 = lo << s;
+	uint64_t un32 = hi << s;
+	if (s != 0) {
+		un32 |= lo >> (64 - s);
+	}
+	uint64_t un10 = lo;
+	if (s < 64) {
+		un10 <<= s;
+	}
+	else {
+		un10 = 0;
+	}
 	uint64_t un1 = un10 >> 32U;
 	uint64_t un0 = un10 & mask32;
 	uint64_t q1 = un32 / yn1;

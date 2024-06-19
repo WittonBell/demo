@@ -141,7 +141,7 @@ static void karatsuba(nat z, nat x, nat y) {
 	}
 }
 
-static void addAt(nat z, nat x, uint64_t i) {
+void addAt(nat z, nat x, ssize_t i) {
 	if (x.len > 0) {
 		nat z1 = natPart(z, i, i + x.len);
 		nat z2 = natPart(z, i, x.len);

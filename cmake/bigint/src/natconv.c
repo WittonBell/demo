@@ -114,7 +114,7 @@ static Word maxPow(Word b, uint64_t* n) {
 	*n = 1;
 	for (uint64_t max = _M / b; p < max;) {
 		p *= b;
-		++n;
+		++*n;
 	}
 	return p;
 }
@@ -143,7 +143,7 @@ char* natI2a(nat x, bool neg, int base) {
 	if (neg) {
 		++i;
 	}
-	int64_t slen = i + 1;
+	int64_t slen = i;
 	char* s = calloc(1, slen);
 	if (s == NULL) {
 		return NULL;
