@@ -4,7 +4,7 @@
 
 struct BigInt {
     bool neg;
-    nat *abs;
+    nat abs;
 };
 
 BigInt* BigIntNewI(int64_t v) {
@@ -34,7 +34,7 @@ BigInt* BigIntNewU(uint64_t v) {
 }
 
 void BigIntFree(BigInt* t) {
-    natFree(t->abs);
+    natFree(&t->abs);
     free(t);
 }
 
@@ -54,7 +54,7 @@ BigInt* BigIntAdd(BigInt* x, BigInt *y) {
             z->abs = natSub(y->abs, x->abs);
         }
     }
-    z->neg = z->abs->len > 0 && neg;
+    z->neg = z->abs.len > 0 && neg;
     return z;
 }
 

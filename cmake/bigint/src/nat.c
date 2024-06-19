@@ -2,66 +2,67 @@
 #include "bigint.h"
 #include "nat.h"
 
-nat* natNewLen(int64_t len) {
-	nat* p = (nat*)calloc(1, sizeof(nat) + len * sizeof(Word));
-	if (p == NULL) {
-		return NULL;
+nat natNewLen(ssize_t len) {
+	nat t;
+	t.data = (Word*)calloc(len, sizeof(Word));
+	if (t.data == NULL) {
+		len = 0;
 	}
-	p->cap = len;
-	p->len = len;
-	p->nat = (Word*)&p[1];
-	return p;
-}
-
-nat* natNew(Word v) {
-	const int cap = 8;
-	nat* p = natNewLen(cap);
-	*p->nat = v;
-	p->len = 1;
-	return p;
-}
-
-void natSet(nat* p, uint64_t index, Word value) {
-	assert(index < p->len);
-	p->nat[index] = value;
-}
-
-nat* natCopy(nat* x) {
-	nat* z = natNewLen(x->len);
-	memcpy(z->nat, x->nat, x->len);
-	z->cap = x->len;
-	z->len = x->len;
-	return z;
-}
-
-void natCopy2(nat* dst, nat* src) {
-	assert(dst->cap >= src->len);
-	memcpy(dst->nat, src->nat, src->len * sizeof(dst->nat[0]));
-}
-
-nat* natPart(nat* p, uint64_t from, uint64_t to) {
-	nat* t = (nat*)malloc(sizeof(nat));
-	if (t == NULL) {
-		return NULL;
-	}
-	t->cap = to - from;
-	t->len = t->cap;
-	t->nat = &p->nat[from];
+	t.cap = len;
+	t.len = len;
+	t.part = false;
 	return t;
 }
 
-nat* natNorm(nat* p) {
-	int64_t i = p->len;
-	while (i > 0 && p->nat[i - 1] == 0) {
+nat natNew(Word v) {
+	const size_t cap = 8;
+	nat t = natNewLen(cap);
+	*t.data = v;
+	t.len = 1;
+	return t;
+}
+
+void natSet(nat t, ssize_t index, Word value) {
+	assert(index >= 0 && index < t.len);
+	t.data[index] = value;
+}
+
+nat natCopy(nat x) {
+	nat z = natNewLen(x.len);
+	memcpy(z.data, x.data, x.len);
+	z.cap = x.len;
+	z.len = x.len;
+	return z;
+}
+
+void natCopy2(nat dst, nat src) {
+	assert(dst.cap >= src.len);
+	memcpy(dst.data, src.data, src.len * sizeof(dst.data[0]));
+}
+
+nat natPart(nat p, ssize_t from, ssize_t to) {
+	assert(to >= from);
+	assert(from >= 0);
+	nat t;
+	t.cap = to - from;
+	t.len = t.cap;
+	t.data = &p.data[from];
+	t.part = true;
+	return t;
+}
+
+nat natNorm(nat p) {
+	ssize_t i = p.len;
+	while (i > 0 && p.data[i - 1] == 0) {
 		--i;
 	}
-	p->len = i;
+	p.len = i;
 	return p;
 }
 
-int natCmp(nat* x, nat* y) {
-	int64_t m = x->len;
-	int64_t n = y->len;
+int natCmp(nat x, nat y) {
+	ssize_t m = x.len;
+	ssize_t n = y.len;
 	if (m != n || m == 0) {
 		if (m < n) {
 			return -1;
@@ -72,18 +73,25 @@ int natCmp(nat* x, nat* y) {
 		return 0;
 	}
 	uint64_t i = m - 1;
-	while (i > 0 && x->nat[i] == y->nat[i]) {
+	while (i > 0 && x.data[i] == y.data[i]) {
 		--i;
 	}
-	if (x->nat[i] < y->nat[i]) {
+	if (x.data[i] < y.data[i]) {
 		return -1;
 	}
-	if (x->nat[i] > y->nat[i]) {
+	if (x.data[i] > y.data[i]) {
 		return 1;
 	}
 	return 0;
 }
 
-void natFree(nat* p) {
-	free(p);
+void natFree(nat *p) {
+	if (p->part) {
+		return;
+	}
+	free(p->data);
+	p->data = NULL;
+	p->cap = 0;
+	p->len = 0;
+	p->part = false;
 }

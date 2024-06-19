@@ -137,9 +137,15 @@ uint64_t U64Add(uint64_t x, uint64_t y, uint64_t* carray) {
 
 size_t UIntAdd(size_t x, size_t y, size_t* carry) {
 	if (UintSize == 32) {
-		return U32Add(x, y, carry);
+		uint32_t c = *carry;
+		size_t v = (size_t)U32Add(x, y, &c);
+		*carry = (size_t)c;
+		return v;
 	}
-	return U64Add(x, y, carry);
+	uint64_t c = *carry;
+	size_t v = (size_t)U64Add(x, y, &c);
+	*carry = (size_t)c;
+	return v;
 }
 
 uint32_t U32Sub(uint32_t a, uint32_t b, uint32_t* borrow) {
@@ -156,9 +162,15 @@ uint64_t U64Sub(uint64_t x, uint64_t y, uint64_t* borrow) {
 
 size_t UIntSub(size_t x, size_t y, size_t* borrow) {
 	if (UintSize == 32) {
-		return U32Sub(x, y, borrow);
+		uint32_t c = *borrow;
+		size_t v = (size_t)U32Sub(x, y, &c);
+		*borrow = (size_t)c;
+		return v;
 	}
-	return U64Sub(x, y, borrow);
+	uint64_t c = *borrow;
+	size_t v = (size_t)U64Sub(x, y, &c);
+	*borrow = (size_t)c;
+	return v;
 }
 
 uint32_t U32Mul(uint32_t x, uint32_t y, uint32_t* hi) {
@@ -184,9 +196,15 @@ uint64_t U64Mul(uint64_t x, uint64_t y, uint64_t* hi) {
 
 size_t UIntMul(size_t x, size_t y, size_t* hi) {
 	if (UintSize == 32) {
-		return U32Mul(x, y, hi);
+		uint32_t h = *hi;
+		size_t v = (size_t)U32Mul(x, y, &h);
+		*hi = (size_t)h;
+		return v;
 	}
-	return U64Mul(x, y, hi);
+	uint64_t h = *hi;
+	size_t v = (size_t)U64Mul(x, y, &h);
+	*hi = (size_t)h;
+	return v;
 }
 
 uint32_t U32Div(uint32_t hi, uint32_t lo, uint32_t y, uint32_t* rem) {
@@ -244,9 +262,15 @@ uint64_t U64Div(uint64_t hi, uint64_t lo, uint64_t y, uint64_t* rem) {
 
 size_t UIntDiv(size_t hi, size_t lo, size_t y, size_t* rem) {
 	if (UintSize == 32) {
-		return U32Div(hi, lo, y, rem);
+		uint32_t r = *rem;
+		size_t v = (size_t)U32Div(hi, lo, y, &r);
+		*rem = (size_t)r;
+		return v;
 	}
-	return U64Div(hi, lo, y, rem);
+	uint64_t r = *rem;
+	size_t v = (size_t)U64Div(hi, lo, y, &r);
+	*rem = (size_t)r;
+	return v;
 }
 
 uint32_t U32Rem(uint32_t hi, uint32_t lo, uint32_t y) {
