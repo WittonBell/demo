@@ -20,9 +20,10 @@ static Word addMulVVW(nat z, nat x, Word y) {
 	for (ssize_t i = 0; i < z.len && i < x.len; ++i) {
 		Word z1 = 0;
 		Word z0 = mulAddWWW(x.data[i], y, z.data[i], &z1);
-		Word lo = UIntAdd(z0, c, &c);
+		Word cc = 0;
+		Word lo = UIntAdd(z0, c, &cc);
 		z.data[i] = lo;
-		c += z1;
+		c = cc + z1;
 	}
 	return c;
 }
@@ -143,7 +144,7 @@ static void karatsuba(nat z, nat x, nat y) {
 void addAt(nat z, nat x, ssize_t i) {
 	if (x.len > 0) {
 		nat z1 = natPart(z, i, i + x.len);
-		nat z2 = natPart(z, i, x.len);
+		nat z2 = natPart(z, i, z.len);
 		Word c = addVV(z1, z2, x);
 		if (c != 0) {
 			ssize_t j = i + x.len;
@@ -178,9 +179,8 @@ nat natMul(nat x, nat y) {
 	nat z = natNewLen(fmax(6 * k, m + n));
 	karatsuba(z, x0, y0);
 
-	nat z1 = natPart(z, 0, m + n);
-	nat z2 = natPart(z1, 2 * k, z1.len);
-	memset(z2.data, 0, z2.len * sizeof(z2.data[0]));
+	z = natPart(z, 0, m + n);
+	natClear(natPart(z, 2 * k, z.len));
 
 	if (k < n || m != n) {
 		x0 = natNorm(x0);
@@ -222,26 +222,27 @@ nat basicSqr(nat z,nat x) {
 	return z;
 }
 
-nat karatsubaSqr(nat z, nat x) {
+void karatsubaSqr(nat z, nat x) {
 	ssize_t n = x.len;
 	if (n & 1 != 0 || n < karatsubaSqrThreshold || n < 2) {
-		return basicSqr(natPart(z, 0, 2 * n), x);
+		basicSqr(natPart(z, 0, 2 * n), x);
+		return;
 	}
 
 	ssize_t n2 = n >> 1;
 	nat x0 = natPart(x, 0, n2);
 	nat x1 = natPart(x, n2, x.len);
 
-	z = karatsubaSqr(z, x0);
+	karatsubaSqr(z, x0);
 	nat z1 = natPart(z, n, z.len);
-	z1 = karatsubaSqr(z1, x1);
+	karatsubaSqr(z1, x1);
 
 	nat xd = natPart(z, 2 * n, 2 * n + n2);
 	if (subVV(xd, x1, x0) != 0) {
 		subVV(xd, x0, x1);
 	}
 	nat p = natPart(z, n * 3, z.len);
-	p = karatsubaSqr(p, xd);
+	karatsubaSqr(p, xd);
 
 	nat r = natPart(z, n * 4, z.len);
 	natCopy2(r, natPart(z, 0, n * 2));
@@ -250,7 +251,6 @@ nat karatsubaSqr(nat z, nat x) {
 	karatsubaAdd(z2, r, n);
 	karatsubaAdd(z2, natPart(r, n, r.len), n);
 	karatsubaSub(z2, p, n);
-	return z;
 }
 
 // 计算平方
@@ -267,15 +267,20 @@ nat natSqr(nat x) {
 	}
 	if (n < basicSqrThreshold) {
 		nat z = natNewLen(2 * n);
+		basicMul(z, x, x);
+		return natNorm(z);
+	}
+	if (n < karatsubaSqrThreshold) {
+		nat z = natNewLen(2 * n);
 		z = basicSqr(z, x);
 		return natNorm(z);
 	}
 	ssize_t k = karatsubaLen(n, karatsubaSqrThreshold);
 	nat x0 = natPart(x, 0, k);
 	nat z = natNewLen(fmax(6 * k, 2 * n));
-	z = karatsubaSqr(z, x0);
-	nat z1 = natPart(z, 0, 2 * n);
-	natClear(natPart(z1, 2 * k, z1.len));
+	karatsubaSqr(z, x0);
+	z = natPart(z, 0, 2 * n);
+	natClear(natPart(z, 2 * k, z.len));
 
 	if (k < n) {
 		x0 = natNorm(x0);

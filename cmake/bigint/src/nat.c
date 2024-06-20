@@ -91,6 +91,12 @@ void natClear(nat x) {
 	}
 }
 
+void natSwap(nat* x, nat* y) {
+	nat t = *x;
+	*x = *y;
+	*y = t;
+}
+
 void natFree(nat *p) {
 	if (p->part) {
 		return;

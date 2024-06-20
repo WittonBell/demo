@@ -4,7 +4,7 @@
 
 #define divRecursiveThreshold 100
 
-static size_t nlz(Word x) {
+size_t nlz(Word x) {
 	return LeadingZeros(x);
 }
 
@@ -113,7 +113,7 @@ static void natDivBasic(nat q, nat u, nat v) {
 			}
 		}
 
-		qhatv.data[n] = mulAddVWW(qhatv, v, qhat, 0);
+		qhatv.data[n] = mulAddVWW(natPart(qhatv, 0, n), v, qhat, 0);
 		ssize_t qhl = qhatv.len;
 		if (j + qhl > u.len && qhatv.data[n] == 0) {
 			qhl--;
@@ -136,21 +136,21 @@ static void natDivBasic(nat q, nat u, nat v) {
 	}
 }
 
-static nat natDivRecursiveStep(nat z, nat u, nat v, ssize_t depth, nat tmp, nat* temps, ssize_t tempsNum) {
+static void natDivRecursiveStep(nat z, nat u, nat v, ssize_t depth, nat tmp, nat* temps, ssize_t tempsNum) {
 	u = natNorm(u);
 	v = natNorm(v);
 	if (u.len == 0) {
 		natClear(z);
-		return z;
+		return;
 	}
 	ssize_t n = v.len;
 	if (n < divRecursiveThreshold) {
 		natDivBasic(z, u, v);
-		return z;
+		return;
 	}
 	ssize_t m = u.len - n;
 	if (m < 0) {
-		return z;
+		return;
 	}
 
 	ssize_t B = n / 2;
@@ -168,7 +168,7 @@ static nat natDivRecursiveStep(nat z, nat u, nat v, ssize_t depth, nat tmp, nat*
 		nat qhat = temps[depth];
 		natClear(qhat);
 		if (depth + 1 < tempsNum) {
-			qhat = natDivRecursiveStep(qhat, natPart(uu, s, B + n), natPart(v, s, v.len), depth + 1, tmp, temps, tempsNum);
+			natDivRecursiveStep(qhat, natPart(uu, s, B + n), natPart(v, s, v.len), depth + 1, tmp, temps, tempsNum);
 		}
 		qhat = natNorm(qhat);
 
@@ -203,13 +203,12 @@ static nat natDivRecursiveStep(nat z, nat u, nat v, ssize_t depth, nat tmp, nat*
 	nat qhat = temps[depth];
 	natClear(qhat);
 	if (depth + 1 < tempsNum) {
-		qhat = natDivRecursiveStep(qhat, natNorm(natPart(u, s, u.len)), natPart(v, s, v.len), depth + 1, tmp, temps, tempsNum);
+		natDivRecursiveStep(qhat, natNorm(natPart(u, s, u.len)), natPart(v, s, v.len), depth + 1, tmp, temps, tempsNum);
 	}
 	qhat = natNorm(qhat);
 	nat qhatv = natMul(qhat, natPart(v, 0, s));
 	for (int i = 0; i < 2; ++i) {
-		u = natNorm(u);
-		if (natCmp(qhatv, u) > 0) {
+		if (natCmp(qhatv, natNorm(u)) > 0) {
 			subVW(qhat, qhat, 1);
 			nat s1 = natPart(qhatv, 0, s);
 			Word c = subVV(s1, s1, natPart(v, 0, s));
@@ -220,8 +219,7 @@ static nat natDivRecursiveStep(nat z, nat u, nat v, ssize_t depth, nat tmp, nat*
 			addAt(natPart(u, s, u.len), natPart(v, s, v.len), 0);
 		}
 	}
-	u = natNorm(u);
-	assert(natCmp(qhatv, u) <= 0);
+	assert(natCmp(qhatv, natNorm(u)) <= 0);
 	nat u1 = natPart(u, 0, qhatv.len);
 	Word c = subVV(u1, u1, qhatv);
 	if (c > 0) {
@@ -230,22 +228,22 @@ static nat natDivRecursiveStep(nat z, nat u, nat v, ssize_t depth, nat tmp, nat*
 	}
 	assert(c <= 0);
 	addAt(z, natNorm(qhat), 0);
-	return z;
 }
 
-static nat natDivRecursive(nat q, nat u, nat v) {
+static void natDivRecursive(nat z, nat u, nat v) {
 	ssize_t recDepth = 2 * Len((size_t)v.len);
 	nat tmp = natNewLen(3 * v.len);
 	nat* temps = calloc(recDepth, sizeof(nat));
 	if (temps == NULL) {
-		return natNewLen(0);
+		printf("out of memory in natDivRecursive");
+		return;
 	}
-	nat z = natDivRecursiveStep(q, u, v, 0, tmp, temps, recDepth);
+	natClear(z);
+	natDivRecursiveStep(z, u, v, 0, tmp, temps, recDepth);
 	for (ssize_t i = 0; i < recDepth; ++i) {
 		natFree(&temps[i]);
 	}
 	free(temps);
-	return z;
 }
 
 Word shlVU(nat z, nat x, size_t s) {

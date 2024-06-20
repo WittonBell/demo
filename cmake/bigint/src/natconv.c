@@ -3,8 +3,8 @@
 
 typedef struct divisor {
 	nat     bbb;
-	int64_t nbits;
-	int64_t ndigits;
+	ssize_t nbits;
+	ssize_t ndigits;
 }divisor;
 
 static const int leafSize = 8;
@@ -22,6 +22,30 @@ static uint64_t natBitLen(nat x) {
 		return i * _W + Len(top);
 	}
 	return 0;
+}
+
+// 当x为2的i次方时，返回指数i；否则返回-1
+static ssize_t natIsPower2(nat x) {
+	ssize_t i = 0;
+	while (x.data[i] == 0) {
+		++i;
+	}
+	if (i == x.len - 1 && (x.data[i] & (x.data[i] - 1)) == 0) {
+		return i * _W + (size_t)TrailingZeros(x.data[i]);
+	}
+	return -1;
+}
+
+static nat natExpNNMontgomery(nat z, nat x, nat y, nat m) {
+	return natNorm(z);
+}
+
+static nat natExpNNWindowed(nat z, nat x, nat y, size_t logM) {
+	return natNorm(z);
+}
+
+static nat natExpNNMontgomeryEven(nat z, nat x, nat y, nat m) {
+	return natNorm(z);
 }
 
 static nat natExpNN(nat x, nat y, nat m, bool slow) {
@@ -48,10 +72,59 @@ static nat natExpNN(nat x, nat y, nat m, bool slow) {
 		nat z = natNewLen(m.len);
 		if (y.len > 1 && !slow) {
 			if ((m.data[0] & 1) == 1) {
-
+				return natExpNNMontgomery(z, x, y, m);
 			}
+			ssize_t logM = natIsPower2(m);
+			if (logM >= 0) {
+				return natExpNNWindowed(z, x, y, logM);
+			}
+			return natExpNNMontgomeryEven(z, x, y, m);
 		}
 	}
+
+	nat z = natCopy(x);
+	Word v = y.data[y.len - 1];
+	size_t shift = nlz(v) + 1;
+	v <<= shift;
+
+	const size_t mask = (size_t)1 << (_W - 1);
+	size_t w = _W - (ssize_t)shift;
+
+	nat q, zz, r;
+	for (size_t j = 0; j < w; ++j) {
+		zz = natSqr(z);
+		natSwap(&z, &zz);
+
+		if (v & mask != 0) {
+			zz = natMul(z, x);
+			natSwap(&z, &zz);
+		}
+		if (m.len != 0) {
+			nat r;
+			zz = natDiv(z, m, &r);
+			natSwap(&zz, &q);
+			natSwap(&z, &r);
+		}
+		v <<= 1;
+	}
+	for (ssize_t i = y.len - 2; i >= 0; --i) {
+		v = y.data[i];
+		for (ssize_t j = 0; j < _W; ++j) {
+			zz = natSqr(z);
+			natSwap(&z, &zz);
+			if (v & mask != 0) {
+				zz = natMul(z, x);
+				natSwap(&z, &zz);
+			}
+			if (m.len != 0) {
+				zz = natDiv(z, m, &r);
+				natSwap(&zz, &q);
+				natSwap(&r, &z);
+			}
+			v <<= 1;
+		}
+	}
+	return natNorm(z);
 }
 
 nat natExpWW(Word x, Word y) {
@@ -62,17 +135,17 @@ nat natExpWW(Word x, Word y) {
 	return z;
 }
 
-divisor* divisors(int64_t m, Word b, ssize_t ndigits, Word bb, int* divisorNum) {
+divisor* divisors(ssize_t m, Word b, ssize_t ndigits, Word bb, int* divisorNum) {
 	if (leafSize == 0 || m <= leafSize) {
 		return NULL;
 	}
 
-	uint64_t k = 1;
-	for (uint64_t words = leafSize; words < (m>>1U); words <<= 1U) {
+	ssize_t k = 1;
+	for (ssize_t words = leafSize; words < (m>>1U); words <<= 1U) {
 		++k;
 	}
 	divisor* table = NULL;
-	table = (divisor*)malloc(sizeof(divisor) * k);
+	table = (divisor*)calloc(k, sizeof(divisor));
 	if (table == NULL) {
 		return NULL;
 	}
@@ -117,6 +190,7 @@ static Word maxPow(Word b, ssize_t* n) {
 void convertWords(nat q, char* s, ssize_t slen, Word b, int64_t ndigits, Word bb, divisor* table, int tableNum) {
 	if (table != NULL) {
 		int index = tableNum - 1;
+		nat r;
 		while (q.len > leafSize) {
 			ssize_t maxLen = natBitLen(q);
 			ssize_t minLen = maxLen >> 1;
@@ -127,11 +201,10 @@ void convertWords(nat q, char* s, ssize_t slen, Word b, int64_t ndigits, Word bb
 				--index;
 				assert(index >= 0);
 			}
-			nat r;
 			q = natDiv(q, table[index].bbb, &r);
 			ssize_t h = slen - table[index].ndigits;
 			convertWords(r, &s[h], table[index].ndigits, b, ndigits, bb, table, index);
-			s = &s[h];
+			slen = h;
 		}
 	}
 	ssize_t i = slen;
@@ -175,23 +248,23 @@ char* natI2a(nat x, bool neg, int base) {
 		p[1] = 0;
 		return p;
 	}
-	int64_t i = ((double)(natBitLen(x)) / log2((double)base)) + 1;
+	ssize_t i = ((double)(natBitLen(x)) / log2((double)base)) + 1;
 	if (neg) {
 		++i;
 	}
-	ssize_t slen = i+1;
-	char* s = calloc(1, slen);
+	ssize_t slen = i;
+	char* s = calloc(1, slen+1);
 	if (s == NULL) {
 		return NULL;
 	}
 	Word b = (Word)base;
 	if (b == b & -b) {
-		uint64_t shift = TrailingZeros(b);
-		uint64_t mask = 1ULL << shift - 1;
+		ssize_t shift = TrailingZeros(b);
+		size_t mask = 1ULL << shift - 1;
 		Word w = x.data[0];
-		uint64_t nbits = _W;
+		size_t nbits = _W;
 
-		for (uint64_t k = 1; k < x.len; ++k) {
+		for (ssize_t k = 1; k < x.len; ++k) {
 			while (nbits >= shift) {
 				--i;
 				s[i] = digits[w & mask];
@@ -235,6 +308,6 @@ char* natI2a(nat x, bool neg, int base) {
 		s[i] = '-';
 	}
 	memmove(s, &s[i], slen - i);
-	s[slen-1] = 0;
+	s[slen - i] = 0;
 	return s;
 }

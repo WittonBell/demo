@@ -30,6 +30,7 @@ nat natPart(nat p, ssize_t from, ssize_t to);
 nat natNorm(nat p);
 int natCmp(nat x, nat y);
 void natClear(nat x);
+void natSwap(nat* x, nat* y);
 void natFree(nat* p);
 
 nat natAdd(nat x, nat y);
@@ -55,6 +56,7 @@ Word shlVU(nat z, nat x, size_t s);
 divisor* divisors(int64_t m, Word b, ssize_t ndigits, Word bb, int* divisorNum);
 char* natI2a(nat x, bool neg, int base);
 
+size_t nlz(Word x);
 int Len(size_t x);
 int LeadingZeros(size_t x);
 int LeadingZeros64(uint64_t x);
