@@ -260,7 +260,7 @@ char* natI2a(nat x, bool neg, int base) {
 	Word b = (Word)base;
 	if (b == b & -b) {
 		ssize_t shift = TrailingZeros(b);
-		size_t mask = 1ULL << shift - 1;
+		size_t mask = (1ULL << shift) - 1;
 		Word w = x.data[0];
 		size_t nbits = _W;
 

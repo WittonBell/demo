@@ -19,7 +19,7 @@ static Word reciprocalWord(Word d1) {
 static Word divWW(Word x1, Word x0, Word y, Word m, Word* r) {
 	size_t s = nlz(y);
 	if (s != 0) {
-		x1 = x1 << s | x0 >> (_W - s);
+		x1 = (x1 << s) | (x0 >> (_W - s));
 		x0 <<= s;
 		y <<= s;
 	}
@@ -104,7 +104,7 @@ static void natDivBasic(nat q, nat u, nat v) {
 			Word ujn2 = u.data[j + n - 2];
 			while (greaterThan(x1, x2, rhat, ujn2)) {
 				qhat--;
-				uint64_t preRhat = rhat;
+				Word preRhat = rhat;
 				rhat += vn1;
 				if (rhat < preRhat) {
 					break;
@@ -118,12 +118,10 @@ static void natDivBasic(nat q, nat u, nat v) {
 		if (j + qhl > u.len && qhatv.data[n] == 0) {
 			qhl--;
 		}
-		nat u1 = natPart(u, j, j + qhl);
-		nat u2 = natPart(u, j, u.len);
-		Word c = subVV(u1, u2, qhatv);
+		Word c = subVV(natPart(u, j, j + qhl), natPart(u, j, u.len), qhatv);
 		if (c != 0) {
 			nat u3 = natPart(u, j, j + n);
-			Word cc = addVV(u3, u2, v);
+			Word cc = addVV(u3, natPart(u, j, u.len), v);
 			if (n < qhl) {
 				u.data[j + n] += cc;
 			}
@@ -167,33 +165,26 @@ static void natDivRecursiveStep(nat z, nat u, nat v, ssize_t depth, nat tmp, nat
 		nat uu = natPart(u, j - B, u.len);
 		nat qhat = temps[depth];
 		natClear(qhat);
-		if (depth + 1 < tempsNum) {
-			natDivRecursiveStep(qhat, natPart(uu, s, B + n), natPart(v, s, v.len), depth + 1, tmp, temps, tempsNum);
-		}
+		assert(depth + 1 < tempsNum);
+		natDivRecursiveStep(qhat, natPart(uu, s, B + n), natPart(v, s, v.len), depth + 1, tmp, temps, tempsNum);
 		qhat = natNorm(qhat);
 
 		nat qhatv = natMul(qhat, natPart(v, 0, s));
 		for (int i = 0; i < 2; ++i) {
-			uu = natNorm(uu);
-			if (natCmp(qhatv, uu) <= 0) {
+			if (natCmp(qhatv, natNorm(uu)) <= 0) {
 				break;
 			}
 			subVW(qhat, qhat, 1);
-			nat s1 = natPart(qhatv, 0, s);
-			Word c = subVV(s1, s1, natPart(v, 0, s));
+			Word c = subVV(natPart(qhatv, 0, s), natPart(qhatv, 0, s), natPart(v, 0, s));
 			if (qhatv.len > s) {
-				nat s2 = natPart(qhatv, s, qhatv.len);
-				subVW(s2, s2, c);
+				subVW(natPart(qhatv, s, qhatv.len), natPart(qhatv, s, qhatv.len), c);
 			}
 			addAt(natPart(uu, s, uu.len), natPart(v, s, v.len), 0);
 		}
-		uu = natNorm(uu);
-		assert(natCmp(qhatv, uu) <= 0);
-		nat uu1 = natPart(uu, 0, qhatv.len);
-		Word c = subVV(uu1, uu1, qhatv);
+		assert(natCmp(qhatv, natNorm(uu)) <= 0);
+		Word c = subVV(natPart(uu, 0, qhatv.len), natPart(uu, 0, qhatv.len), qhatv);
 		if (c > 0) {
-			nat uu2 = natPart(uu, qhatv.len, uu.len);
-			subVW(uu2, uu2, c);
+			subVW(natPart(uu, qhatv.len, uu.len), natPart(uu, qhatv.len, uu.len), c);
 		}
 		addAt(z, qhat, j - B);
 		j -= B;
@@ -202,29 +193,24 @@ static void natDivRecursiveStep(nat z, nat u, nat v, ssize_t depth, nat tmp, nat
 	ssize_t s = B - 1;
 	nat qhat = temps[depth];
 	natClear(qhat);
-	if (depth + 1 < tempsNum) {
-		natDivRecursiveStep(qhat, natNorm(natPart(u, s, u.len)), natPart(v, s, v.len), depth + 1, tmp, temps, tempsNum);
-	}
+	assert(depth + 1 < tempsNum);
+	natDivRecursiveStep(qhat, natNorm(natPart(u, s, u.len)), natPart(v, s, v.len), depth + 1, tmp, temps, tempsNum);
 	qhat = natNorm(qhat);
 	nat qhatv = natMul(qhat, natPart(v, 0, s));
 	for (int i = 0; i < 2; ++i) {
 		if (natCmp(qhatv, natNorm(u)) > 0) {
 			subVW(qhat, qhat, 1);
-			nat s1 = natPart(qhatv, 0, s);
-			Word c = subVV(s1, s1, natPart(v, 0, s));
+			Word c = subVV(natPart(qhatv, 0, s), natPart(qhatv, 0, s), natPart(v, 0, s));
 			if (qhatv.len > s) {
-				nat s2 = natPart(qhatv, s, qhatv.len);
-				subVW(s2, s2, c);
+				subVW(natPart(qhatv, s, qhatv.len), natPart(qhatv, s, qhatv.len), c);
 			}
 			addAt(natPart(u, s, u.len), natPart(v, s, v.len), 0);
 		}
 	}
 	assert(natCmp(qhatv, natNorm(u)) <= 0);
-	nat u1 = natPart(u, 0, qhatv.len);
-	Word c = subVV(u1, u1, qhatv);
+	Word c = subVV(natPart(u, 0, qhatv.len), natPart(u, 0, qhatv.len), qhatv);
 	if (c > 0) {
-		nat u2 = natPart(u, qhatv.len, u.len);
-		c = subVW(u2, u2, c);
+		c = subVW(natPart(u, qhatv.len, u.len), natPart(u, qhatv.len, u.len), c);
 	}
 	assert(c <= 0);
 	addAt(z, natNorm(qhat), 0);

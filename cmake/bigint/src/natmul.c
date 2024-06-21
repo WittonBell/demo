@@ -75,22 +75,16 @@ ssize_t karatsubaLen(ssize_t n, ssize_t threshold) {
 }
 
 static void karatsubaAdd(nat z, nat x, uint64_t n) {
-	nat z1 = natPart(z, 0, n);
-	Word c = addVV(z1, z, x);
+	Word c = addVV(natPart(z, 0, n), z, x);
 	if (c != 0) {
-		nat z2 = natPart(z, n, n + n >> 1);
-		nat z3 = natPart(z, n, z.len);
-		addVW(z2, z3, c);
+		addVW(natPart(z, n, n + (n >> 1)), natPart(z, n, z.len), c);
 	}
 }
 
 static void karatsubaSub(nat z, nat x, uint64_t n) {
-	nat z1 = natPart(z, 0, n);
-	Word c = subVV(z1, z, x);
+	Word c = subVV(natPart(z, 0, n), z, x);
 	if (c != 0) {
-		nat z2 = natPart(z, n, n + n >> 1);
-		nat z3 = natPart(z, n, z.len);
-		subVW(z2, z3, c);
+		subVW(natPart(z, n, n + (n >> 1)), natPart(z, n, z.len), c);
 	}
 }
 
@@ -185,7 +179,7 @@ nat natMul(nat x, nat y) {
 	if (k < n || m != n) {
 		x0 = natNorm(x0);
 		nat y1 = natPart(y, k, y.len);
-		nat t = natMul(x0, y0);
+		nat t = natMul(x0, y1);
 		addAt(z, t, k);
 
 		y0 = natNorm(y0);

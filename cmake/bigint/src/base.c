@@ -97,21 +97,21 @@ int TrailingZeros16(uint16_t x) {
 	if (x == 0) {
 		return 16;
 	}
-	return deBruijn32tab[(uint32_t)(x & -x) * deBruijn32 >> (32 - 5)];
+	return deBruijn32tab[(uint32_t)(x & -x) * (deBruijn32 >> (32 - 5))];
 }
 
 int TrailingZeros32(uint32_t x) {
 	if (x == 0) {
 		return 32;
 	}
-	return deBruijn32tab[(x & -x) * deBruijn32 >> (32 - 5)];
+	return deBruijn32tab[(x & -x) * (deBruijn32 >> (32 - 5))];
 }
 
 int TrailingZeros64(uint64_t x) {
 	if (x == 0) {
 		return 64;
 	}
-	return deBruijn64tab[(x & -x) * deBruijn64 >> (64 - 6)];
+	return deBruijn64tab[(x & -x) * (deBruijn64 >> (64 - 6))];
 }
 
 int TrailingZeros(size_t x) {
