@@ -7,8 +7,8 @@ struct BigInt {
 	nat abs;
 };
 
-static Word word1 = 1;
-static BigInt intOne = { false, { &word1, 1, 1, true } };
+static const Word word1 = 1;
+static const BigInt intOne = { false, { &word1, 1, 1, true } };
 
 BigInt* BigIntNewI(int64_t v) {
 	BigInt* p = (BigInt*)malloc(sizeof(BigInt));
@@ -104,7 +104,7 @@ BigInt* QuoRem(BigInt* x, BigInt* y, BigInt** r) {
 		return NULL;
 	}
 	nat rr;
-	z->abs = natDiv(x->abs, y->abs, &rr);
+	z->abs = natDiv(z->abs, (*r)->abs, x->abs, y->abs, &rr);
 	z->neg = z->abs.len > 0 && x->neg != y->neg;
 	rr = natNorm(rr);
 	(*r)->abs = rr;

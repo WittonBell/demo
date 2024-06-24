@@ -58,6 +58,6 @@ nat natAdd(nat x, nat y) {
 		nat xx = natPart(x, n, x.len);
 		c = addVW(zz, xx, c);
 	}
-	natSet(z, m, c);
+	natSetValue(z, m, c);
 	return natNorm(z);
 }

@@ -15,16 +15,44 @@ nat natNewLen(ssize_t len) {
 }
 
 nat natNew(Word v) {
-	const size_t cap = 8;
+	const ssize_t cap = 8;
 	nat t = natNewLen(cap);
 	*t.data = v;
 	t.len = 1;
 	return t;
 }
 
-void natSet(nat t, ssize_t index, Word value) {
+void natSetValue(nat t, ssize_t index, Word value) {
 	assert(index >= 0 && index < t.len);
 	t.data[index] = value;
+}
+
+nat natSet(nat z, nat x) {
+	z = natMake(z, x.len);
+	natCopy2(z, x);
+	return z;
+}
+
+nat natMake(nat z, ssize_t n) {
+	if (n < z.cap) {
+		return natPart(z, 0, n);
+	}
+	if (n == 1) {
+		return natNewLen(1);
+	}
+	const ssize_t e = 4;
+	nat t = natNewLen(n+e);
+	t.len = n;
+	return t;
+}
+
+nat natSetWord(nat z, Word x) {
+	if (x == 0) {
+		return natPart(z, 0, 0);
+	}
+	z = natMake(z, 1);
+	z.data[0] = x;
+	return z;
 }
 
 nat natCopy(nat x) {

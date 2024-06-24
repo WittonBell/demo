@@ -1,6 +1,7 @@
 #include "priv.h"
 #include "bigint.h"
 #include "nat.h"
+#include <corecrt.h>
 
 Word mulWW(Word x, Word y, Word* z1) {
 	return UIntMul(x, y, z1);
@@ -68,20 +69,20 @@ static const ssize_t karatsubaThreshold = 40;
 ssize_t karatsubaLen(ssize_t n, ssize_t threshold) {
 	ssize_t i = 0;
 	while (n > threshold) {
-		n >>= 1;
+		n >>= 1U;
 		++i;
 	}
 	return n << i;
 }
 
-static void karatsubaAdd(nat z, nat x, uint64_t n) {
+static void karatsubaAdd(nat z, nat x, ssize_t n) {
 	Word c = addVV(natPart(z, 0, n), z, x);
 	if (c != 0) {
-		addVW(natPart(z, n, n + (n >> 1)), natPart(z, n, z.len), c);
+		addVW(natPart(z, n, n + (n >> 1U)), natPart(z, n, z.len), c);
 	}
 }
 
-static void karatsubaSub(nat z, nat x, uint64_t n) {
+static void karatsubaSub(nat z, nat x, ssize_t n) {
 	Word c = subVV(natPart(z, 0, n), z, x);
 	if (c != 0) {
 		subVW(natPart(z, n, n + (n >> 1)), natPart(z, n, z.len), c);
@@ -218,7 +219,7 @@ nat basicSqr(nat z,nat x) {
 
 void karatsubaSqr(nat z, nat x) {
 	ssize_t n = x.len;
-	if (n & 1 != 0 || n < karatsubaSqrThreshold || n < 2) {
+	if ((n & 1) != 0 || (n < karatsubaSqrThreshold) || (n < 2)) {
 		basicSqr(natPart(z, 0, 2 * n), x);
 		return;
 	}

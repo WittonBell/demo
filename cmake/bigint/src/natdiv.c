@@ -221,7 +221,7 @@ static void natDivRecursive(nat z, nat u, nat v) {
 	nat tmp = natNewLen(3 * v.len);
 	nat* temps = calloc(recDepth, sizeof(nat));
 	if (temps == NULL) {
-		printf("out of memory in natDivRecursive");
+		printf("%s\n", "out of memory in natDivRecursive");
 		return;
 	}
 	natClear(z);
@@ -271,17 +271,17 @@ static Word shrVU(nat z, nat x, size_t s) {
 	return c;
 }
 
-static nat natDivLarge(nat uIn, nat vIn, nat* r) {
+static nat natDivLarge(nat z, nat u, nat uIn, nat vIn, nat* r) {
 	ssize_t n = vIn.len;
 	ssize_t m = uIn.len - n;
 
 	size_t shift = nlz(vIn.data[n - 1]);
 	nat v = natNewLen(n);
 	shlVU(v, vIn, shift);
-	nat u = natNewLen(uIn.len + 1);
+	u = natMake(u, uIn.len + 1);
 	u.data[uIn.len] = shlVU(natPart(u, 0, uIn.len), uIn, shift);
 
-	nat q = natNewLen(m + 1);
+	nat q = natMake(z, m + 1);
 	if (n < divRecursiveThreshold) {
 		natDivBasic(q, u, v);
 	}
@@ -294,22 +294,27 @@ static nat natDivLarge(nat uIn, nat vIn, nat* r) {
 	return q;
 }
 
-nat natDiv(nat u, nat v, nat* r) {
+nat natDiv(nat z, nat z2, nat u, nat v, nat* r) {
+	assert(v.len > 0);
 	if (natCmp(u, v) < 0) {
-		*r = natCopy(u);
-		return natNew(0);
-	}
-	if (v.len == 1) {
-		Word rr;
-		nat q = natDivW(u, v.data[0], &rr);
-		*r = natNew(rr);
+		nat q = natPart(z, 0, 0);
+		*r = natSet(z2, u);
 		return q;
 	}
-	return natDivLarge(u, v, r);
+	if (v.len == 1) {
+		Word r2;
+		nat q = natDivW(u, v.data[0], &r2);
+		*r = natSetWord(z2, r2);
+		return q;
+	}
+	return natDivLarge(z, z2, u, v, r);
 }
 
-nat natRem(nat u, nat v) {
+// returns r such that r = u%v.
+// It uses z as the storage for r.
+nat natRem(nat z, nat u, nat v) {
 	nat r;
-	natDiv(u, v, &r);
+	nat qp = natNewLen(0);
+	natDiv(qp, z, u, v, &r);
 	return r;
 }

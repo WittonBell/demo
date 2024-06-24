@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include "bigint.h"
 
 const char* res100W;
@@ -26,14 +27,14 @@ void checkres(size_t count, const char* file_name, const char* res) {
 	size_t i = 0;
 	while (*std && *res) {
 		if (*std != *res) {
-			printf("count:%zdW index:%zd is not match, total:%d\n", count, i, size);
+			printf("count:%zdW index:%zd is not match, total:%ld\n", count, i, size);
 			break;
 		}
 		std++;
 		res++;
 		i++;
 	}
-	fclose(fp);
+	(void)fclose(fp);
 }
 
 void Fibonacci(size_t n) {

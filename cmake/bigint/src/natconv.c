@@ -1,5 +1,6 @@
 #include "priv.h"
 #include "nat.h"
+#include <corecrt.h>
 
 typedef struct divisor {
 	nat     bbb;
@@ -9,16 +10,16 @@ typedef struct divisor {
 
 static const int leafSize = 8;
 
-static uint64_t natBitLen(nat x) {
+static ssize_t natBitLen(nat x) {
 	ssize_t i = x.len - 1;
 	if (i >= 0) {
-		uint64_t top = x.data[i];
-		top |= top >> 1;
-		top |= top >> 2;
-		top |= top >> 4;
-		top |= top >> 8;
-		top |= top >> 16;
-		top |= top >> 16 >> 16;
+		size_t top = x.data[i];
+		top |= top >> 1U;
+		top |= top >> 2U;
+		top |= top >> 4U;
+		top |= top >> 8U;
+		top |= top >> 16U;
+		top |= top >> 16U >> 16U;
 		return i * _W + Len(top);
 	}
 	return 0;
@@ -48,30 +49,30 @@ static nat natExpNNMontgomeryEven(nat z, nat x, nat y, nat m) {
 	return natNorm(z);
 }
 
-static nat natExpNN(nat x, nat y, nat m, bool slow) {
+static nat natExpNN(nat z, nat x, nat y, nat m, bool slow) {
 	if (m.len == 1 && m.data[0] == 1) {
-		return natNew(0);
+		return natSetWord(z, 0);
 	}
 	if (y.len == 0) {
-		return natNew(1);
+		return natSetWord(z, 1);
 	}
 	if (x.len == 0) {
-		return natNew(0);
+		return natSetWord(z, 0);
 	}
 	if (x.len == 1 && x.data[0] == 1) {
-		return natNew(1);
+		return natSetWord(z, 1);
 	}
 	if (y.len == 1 && y.data[0] == 1) {
 		if (m.len != 0) {
-			return natRem(x, m);
+			return natRem(z, x, m);
 		}
-		return natCopy(x);
+		return natSet(z, x);
 	}
 	// y > 1
 	if (m.len != 0) {
-		nat z = natNewLen(m.len);
+		z = natMake(z, m.len);
 		if (y.len > 1 && !slow) {
-			if ((m.data[0] & 1) == 1) {
+			if ((m.data[0] & 1U) == 1) {
 				return natExpNNMontgomery(z, x, y, m);
 			}
 			ssize_t logM = natIsPower2(m);
@@ -82,7 +83,7 @@ static nat natExpNN(nat x, nat y, nat m, bool slow) {
 		}
 	}
 
-	nat z = natCopy(x);
+	z = natSet(z, x);
 	Word v = y.data[y.len - 1];
 	size_t shift = nlz(v) + 1;
 	v <<= shift;
@@ -95,44 +96,40 @@ static nat natExpNN(nat x, nat y, nat m, bool slow) {
 		zz = natSqr(z);
 		natSwap(&z, &zz);
 
-		if (v & mask != 0) {
+		if ((v & mask) != 0) {
 			zz = natMul(z, x);
 			natSwap(&z, &zz);
 		}
 		if (m.len != 0) {
-			nat r;
-			zz = natDiv(z, m, &r);
+			nat r = natNewLen(0);
+			zz = natDiv(zz, r, z, m, &r);
 			natSwap(&zz, &q);
 			natSwap(&z, &r);
 		}
-		v <<= 1;
+		v <<= 1U;
 	}
 	for (ssize_t i = y.len - 2; i >= 0; --i) {
 		v = y.data[i];
 		for (ssize_t j = 0; j < _W; ++j) {
 			zz = natSqr(z);
 			natSwap(&z, &zz);
-			if (v & mask != 0) {
+			if ((v & mask) != 0) {
 				zz = natMul(z, x);
 				natSwap(&z, &zz);
 			}
 			if (m.len != 0) {
-				zz = natDiv(z, m, &r);
+				zz = natDiv(zz, r, z, m, &r);
 				natSwap(&zz, &q);
 				natSwap(&r, &z);
 			}
-			v <<= 1;
+			v <<= 1U;
 		}
 	}
 	return natNorm(z);
 }
 
-nat natExpWW(Word x, Word y) {
-	nat m = natNewLen(0);
-	nat xx = natNew(x);
-	nat yy = natNew(y);
-	nat z = natExpNN(xx, yy, m, false);
-	return z;
+nat natExpWW(nat z, Word x, Word y) {
+	return natExpNN(z, natNew(x), natNew(y), natNewLen(0), false);
 }
 
 divisor* divisors(ssize_t m, Word b, ssize_t ndigits, Word bb, int* divisorNum) {
@@ -140,8 +137,8 @@ divisor* divisors(ssize_t m, Word b, ssize_t ndigits, Word bb, int* divisorNum) 
 		return NULL;
 	}
 
-	ssize_t k = 1;
-	for (ssize_t words = leafSize; words < (m>>1U); words <<= 1U) {
+	int k = 1;
+	for (size_t words = leafSize; words < ((size_t)m>>1U); words <<= 1U) {
 		++k;
 	}
 	divisor* table = NULL;
@@ -155,7 +152,7 @@ divisor* divisors(ssize_t m, Word b, ssize_t ndigits, Word bb, int* divisorNum) 
 		for (uint64_t i = 0; i < k; ++i) {
 			if (table[i].ndigits == 0) {
 				if (i == 0) {
-					table[0].bbb = natExpWW(bb, (Word)leafSize);
+					table[0].bbb = natExpWW(natNewLen(0), bb, (Word)leafSize);
 					table[0].ndigits = ndigits * leafSize;
 				}
 				else {
@@ -190,10 +187,10 @@ static Word maxPow(Word b, ssize_t* n) {
 void convertWords(nat q, char* s, ssize_t slen, Word b, int64_t ndigits, Word bb, divisor* table, int tableNum) {
 	if (table != NULL) {
 		int index = tableNum - 1;
-		nat r;
+		nat r = natNewLen(0);
 		while (q.len > leafSize) {
 			ssize_t maxLen = natBitLen(q);
-			ssize_t minLen = maxLen >> 1;
+			ssize_t minLen = maxLen >> 1U;
 			while (index > 0 && table[index - 1].nbits > minLen) {
 				--index;
 			}
@@ -201,7 +198,7 @@ void convertWords(nat q, char* s, ssize_t slen, Word b, int64_t ndigits, Word bb
 				--index;
 				assert(index >= 0);
 			}
-			q = natDiv(q, table[index].bbb, &r);
+			q = natDiv(q, r, q, table[index].bbb, &r);
 			ssize_t h = slen - table[index].ndigits;
 			convertWords(r, &s[h], table[index].ndigits, b, ndigits, bb, table, index);
 			slen = h;
@@ -215,7 +212,7 @@ void convertWords(nat q, char* s, ssize_t slen, Word b, int64_t ndigits, Word bb
 			for (ssize_t j = 0; j < ndigits && i > 0; j++) {
 				--i;
 				Word t = r / 10;
-				s[i] = '0' + (r - t * 10);
+				s[i] = (char)('0' + (r - t * 10));
 				r = t;
 			}
 		}
@@ -248,7 +245,7 @@ char* natI2a(nat x, bool neg, int base) {
 		p[1] = 0;
 		return p;
 	}
-	ssize_t i = ((double)(natBitLen(x)) / log2((double)base)) + 1;
+	ssize_t i = (ssize_t)((double)(natBitLen(x)) / log2((double)base)) + 1;
 	if (neg) {
 		++i;
 	}
@@ -258,8 +255,8 @@ char* natI2a(nat x, bool neg, int base) {
 		return NULL;
 	}
 	Word b = (Word)base;
-	if (b == b & -b) {
-		ssize_t shift = TrailingZeros(b);
+	if (b == (b & -b)) {
+		size_t shift = TrailingZeros(b);
 		size_t mask = (1ULL << shift) - 1;
 		Word w = x.data[0];
 		size_t nbits = _W;

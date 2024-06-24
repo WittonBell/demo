@@ -2,6 +2,7 @@
 #define _NAT_H_INCLUDE_
 
 #include <stdint.h>
+#include <stdbool.h>
 
 // C/C++左移是常量时，移位长度shift超过数据长度len时，直接变为0；
 // 如果是变量，实际移位长度shift会与数据长度len作模运算，即：shift % len，以32为int数据为例，如果左移33位，实际上移位 33 % 32 = 1位。
@@ -23,7 +24,8 @@ typedef struct divisor divisor;
 
 nat natNew(Word v);
 nat natNewLen(ssize_t len);
-void natSet(nat p, ssize_t index, Word value);
+void natSetValue(nat t, ssize_t index, Word value);
+nat natSet(nat z, nat x);
 nat natCopy(nat x);
 void natCopy2(nat dst, nat src);
 nat natPart(nat p, ssize_t from, ssize_t to);
@@ -31,6 +33,8 @@ nat natNorm(nat p);
 int natCmp(nat x, nat y);
 void natClear(nat x);
 void natSwap(nat* x, nat* y);
+nat natSetWord(nat z, Word x);
+nat natMake(nat z, ssize_t n);
 void natFree(nat* p);
 
 nat natAdd(nat x, nat y);
@@ -48,20 +52,20 @@ void addAt(nat z, nat x, ssize_t i);
 nat natSqr(nat x);
 
 // u/v, 返回值为商，余数为r
-nat natDiv(nat u, nat v, nat* r);
-nat natRem(nat u, nat v);
+nat natDiv(nat z, nat z2, nat u, nat v, nat* r);
+nat natRem(nat z, nat u, nat v);
 nat natDivW(nat x, Word y, Word* r);
 Word shlVU(nat z, nat x, size_t s);
 
-divisor* divisors(int64_t m, Word b, ssize_t ndigits, Word bb, int* divisorNum);
+divisor* divisors(ssize_t m, Word b, ssize_t ndigits, Word bb, int* divisorNum);
 char* natI2a(nat x, bool neg, int base);
 
 size_t nlz(Word x);
-int Len(size_t x);
-int LeadingZeros(size_t x);
-int LeadingZeros64(uint64_t x);
-int TrailingZeros(size_t x);
-int TrailingZeros64(uint64_t x);
+ssize_t Len(size_t x);
+ssize_t LeadingZeros(size_t x);
+ssize_t LeadingZeros64(uint64_t x);
+ssize_t TrailingZeros(size_t x);
+ssize_t TrailingZeros64(uint64_t x);
 
 
 #endif
