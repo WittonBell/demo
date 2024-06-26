@@ -156,8 +156,7 @@ static void natDivRecursiveStep(nat z, nat u, nat v, ssize_t depth, nat tmp, nat
 		temps[depth] = natNewLen(n);
 	}
 	else {
-		natFree(&temps[depth]);
-		temps[depth] = natNewLen(B + 1);
+		temps[depth] = natMake(temps[depth], B + 1);
 	}
 	ssize_t j = m;
 	while (j > B) {

@@ -57,8 +57,9 @@ void Fibonacci(size_t n) {
 }
 
 int main(int argc, char* argv[]) {
-	//Fibonacci(1);
+	Fibonacci(1);
 	Fibonacci(10);
+	Fibonacci(100);
 	BigInt* x = BigIntNewU(9000000000000000000);
 	BigInt* y = BigIntNewU(9000000000000000000);
 	BigInt* z = BigIntAdd(x, y);

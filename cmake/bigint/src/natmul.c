@@ -30,10 +30,10 @@ static Word addMulVVW(nat z, nat x, Word y) {
 }
 
 static void basicMul(nat z, nat x, nat y) {
+	natClear(natPart(z, 0, x.len + y.len));
 	for (ssize_t i = 0; i < y.len; ++i) {
 		if (y.data[i] != 0) {
-			nat zz = natPart(z, i, i + x.len);
-			z.data[x.len + i] = addMulVVW(zz, x, y.data[i]);
+			z.data[x.len + i] = addMulVVW(natPart(z, i, i + x.len), x, y.data[i]);
 		}
 	}
 }
@@ -102,8 +102,7 @@ static void karatsuba(nat z, nat x, nat y) {
 	nat y1 = natPart(y, n2, y.len);
 
 	karatsuba(z, x0, y0);
-	nat z1 = natPart(z, n, z.len);
-	karatsuba(z1, x1, y1);
+	karatsuba(natPart(z, n, z.len), x1, y1);
 
 	ssize_t s = 1;
 	nat xd = natPart(z, 2 * n, 2 * n + n2);
@@ -126,8 +125,7 @@ static void karatsuba(nat z, nat x, nat y) {
 
 	nat z2 = natPart(z, n2, z.len);
 	karatsubaAdd(z2, r, n);
-	nat r1 = natPart(r, n, r.len);
-	karatsubaAdd(z2, r1, n);
+	karatsubaAdd(z2, natPart(r, n, r.len), n);
 	if (s > 0) {
 		karatsubaAdd(z2, p, n);
 	}
@@ -219,7 +217,7 @@ nat basicSqr(nat z,nat x) {
 
 void karatsubaSqr(nat z, nat x) {
 	ssize_t n = x.len;
-	if ((n & 1) != 0 || (n < karatsubaSqrThreshold) || (n < 2)) {
+	if ((n & 1) != 0 || n < karatsubaSqrThreshold || n < 2) {
 		basicSqr(natPart(z, 0, 2 * n), x);
 		return;
 	}
