@@ -91,7 +91,9 @@ static nat natExpNN(nat z, nat x, nat y, nat m, bool slow) {
 	const size_t mask = (size_t)1 << (_W - 1);
 	size_t w = _W - (ssize_t)shift;
 
-	nat q, zz, r;
+	nat q = natNewLen(0);
+	nat zz = q;
+	nat r = q;
 	for (size_t j = 0; j < w; ++j) {
 		zz = natSqr(z);
 		natSwap(&z, &zz);
@@ -299,6 +301,7 @@ char* natI2a(nat x, bool neg, int base) {
 		while (s[i] == '0') {
 			++i;
 		}
+		free(table);
 	}
 	if (neg) {
 		--i;

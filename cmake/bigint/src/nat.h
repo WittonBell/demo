@@ -1,8 +1,7 @@
 #ifndef _NAT_H_INCLUDE_
 #define _NAT_H_INCLUDE_
 
-#include <stdint.h>
-#include <stdbool.h>
+#include "priv.h"
 
 // C/C++左移是常量时，移位长度shift超过数据长度len时，直接变为0；
 // 如果是变量，实际移位长度shift会与数据长度len作模运算，即：shift % len，以32为int数据为例，如果左移33位，实际上移位 33 % 32 = 1位。
@@ -24,18 +23,36 @@ typedef struct divisor divisor;
 
 nat natNew(Word v);
 nat natNewLen(ssize_t len);
-void natSetValue(nat t, ssize_t index, Word value);
-nat natSet(nat z, nat x);
 nat natCopy(nat x);
-void natCopy2(nat dst, nat src);
 nat natPart(nat p, ssize_t from, ssize_t to);
 nat natNorm(nat p);
 int natCmp(nat x, nat y);
-void natClear(nat x);
-void natSwap(nat* x, nat* y);
 nat natSetWord(nat z, Word x);
 nat natMake(nat z, ssize_t n);
+void natClear(nat x);
 void natFree(nat* p);
+
+static inline void natSetValue(nat t, ssize_t index, Word value) {
+	assert(index >= 0 && index < t.len);
+	t.data[index] = value;
+}
+
+static inline void natCopy2(nat dst, nat src) {
+	assert(dst.cap >= src.len);
+	memcpy(dst.data, src.data, src.len * sizeof(dst.data[0]));
+}
+
+static inline nat natSet(nat z, nat x) {
+	z = natMake(z, x.len);
+	natCopy2(z, x);
+	return z;
+}
+
+static inline void natSwap(nat* x, nat* y) {
+	nat t = *x;
+	*x = *y;
+	*y = t;
+}
 
 nat natAdd(nat x, nat y);
 Word addVV(nat z, nat x, nat y);

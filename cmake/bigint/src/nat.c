@@ -4,9 +4,11 @@
 
 nat natNewLen(ssize_t len) {
 	nat t;
-	t.data = (Word*)calloc(len, sizeof(Word));
-	if (t.data == NULL) {
-		len = 0;
+	if (len > 0) {
+		t.data = (Word*)calloc(len, sizeof(Word));
+		if (t.data == NULL) {
+			len = 0;
+		}
 	}
 	t.cap = len;
 	t.len = len;
@@ -20,17 +22,6 @@ nat natNew(Word v) {
 	*t.data = v;
 	t.len = 1;
 	return t;
-}
-
-void natSetValue(nat t, ssize_t index, Word value) {
-	assert(index >= 0 && index < t.len);
-	t.data[index] = value;
-}
-
-nat natSet(nat z, nat x) {
-	z = natMake(z, x.len);
-	natCopy2(z, x);
-	return z;
 }
 
 nat natMake(nat z, ssize_t n) {
@@ -61,11 +52,6 @@ nat natCopy(nat x) {
 	z.cap = x.len;
 	z.len = x.len;
 	return z;
-}
-
-void natCopy2(nat dst, nat src) {
-	assert(dst.cap >= src.len);
-	memcpy(dst.data, src.data, src.len * sizeof(dst.data[0]));
 }
 
 nat natPart(nat p, ssize_t from, ssize_t to) {
@@ -100,7 +86,7 @@ int natCmp(nat x, nat y) {
 		}
 		return 0;
 	}
-	uint64_t i = m - 1;
+	ssize_t i = m - 1;
 	while (i > 0 && x.data[i] == y.data[i]) {
 		--i;
 	}
@@ -117,12 +103,6 @@ void natClear(nat x) {
 	for (ssize_t i = 0; i < x.len; ++i) {
 		x.data[i] = 0;
 	}
-}
-
-void natSwap(nat* x, nat* y) {
-	nat t = *x;
-	*x = *y;
-	*y = t;
 }
 
 void natFree(nat *p) {
