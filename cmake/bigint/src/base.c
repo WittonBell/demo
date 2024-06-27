@@ -211,7 +211,7 @@ size_t UIntMul(size_t x, size_t y, size_t* hi) {
 
 uint32_t U32Div(uint32_t hi, uint32_t lo, uint32_t y, uint32_t* rem) {
 	assert(y != 0); // divideError
-	assert(y <= hi); // "overflowError"
+	assert(y > hi); // "overflowError"
 	uint64_t z = (uint64_t)hi << 32U | (uint64_t)lo;
 	*rem = z % (uint64_t)y;
 	return z / (uint64_t)y;

@@ -10,6 +10,9 @@ nat natNewLen(ssize_t len) {
 			len = 0;
 		}
 	}
+	else {
+		t.data = NULL;
+	}
 	t.cap = len;
 	t.len = len;
 	t.part = false;
@@ -28,6 +31,7 @@ nat natMake(nat z, ssize_t n) {
 	if (n < z.cap) {
 		return natPart(z, 0, n);
 	}
+	natFree(&z);
 	if (n == 1) {
 		return natNewLen(1);
 	}
@@ -46,7 +50,7 @@ nat natSetWord(nat z, Word x) {
 	return z;
 }
 
-nat natCopy(nat x) {
+nat natDup(nat x) {
 	nat z = natNewLen(x.len);
 	memcpy(z.data, x.data, x.len * sizeof(Word));
 	z.cap = x.len;
@@ -61,7 +65,8 @@ nat natPart(nat p, ssize_t from, ssize_t to) {
 	t.cap = to - from;
 	t.len = t.cap;
 	t.data = &p.data[from];
-	t.part = true;
+	// 如果切片是从原来的第0个元素开始的，则需要释放内存，否则不能释放内存
+	from > 0 ? t.part = true : (t.part = false);
 	return t;
 }
 

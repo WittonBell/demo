@@ -23,7 +23,7 @@ typedef struct divisor divisor;
 
 nat natNew(Word v);
 nat natNewLen(ssize_t len);
-nat natCopy(nat x);
+nat natDup(nat x);
 nat natPart(nat p, ssize_t from, ssize_t to);
 nat natNorm(nat p);
 int natCmp(nat x, nat y);
@@ -37,14 +37,14 @@ static inline void natSetValue(nat t, ssize_t index, Word value) {
 	t.data[index] = value;
 }
 
-static inline void natCopy2(nat dst, nat src) {
+static inline void natCopy(nat dst, nat src) {
 	assert(dst.cap >= src.len);
 	memcpy(dst.data, src.data, src.len * sizeof(dst.data[0]));
 }
 
 static inline nat natSet(nat z, nat x) {
 	z = natMake(z, x.len);
-	natCopy2(z, x);
+	natCopy(z, x);
 	return z;
 }
 

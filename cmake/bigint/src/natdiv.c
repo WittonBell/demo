@@ -66,7 +66,7 @@ nat natDivW(nat x, Word y, Word* r) {
 	ssize_t m = x.len;
 	assert(y != 0);
 	if (y == 1) {
-		return natCopy(x);
+		return natDup(x);
 	}
 	if (m == 0) {
 		return natNew(0);
@@ -132,6 +132,7 @@ static void natDivBasic(nat q, nat u, nat v) {
 		}
 		q.data[j] = qhat;
 	}
+	natFree(&qhatv);
 }
 
 static void natDivRecursiveStep(nat z, nat u, nat v, ssize_t depth, nat tmp, nat* temps, ssize_t tempsNum) {
@@ -187,6 +188,7 @@ static void natDivRecursiveStep(nat z, nat u, nat v, ssize_t depth, nat tmp, nat
 		}
 		addAt(z, qhat, j - B);
 		j -= B;
+		natFree(&qhatv);
 	}
 
 	ssize_t s = B - 1;
@@ -213,6 +215,7 @@ static void natDivRecursiveStep(nat z, nat u, nat v, ssize_t depth, nat tmp, nat
 	}
 	assert(c <= 0);
 	addAt(z, natNorm(qhat), 0);
+	natFree(&qhatv);
 }
 
 static void natDivRecursive(nat z, nat u, nat v) {
@@ -229,11 +232,12 @@ static void natDivRecursive(nat z, nat u, nat v) {
 		natFree(&temps[i]);
 	}
 	free(temps);
+	natFree(&tmp);
 }
 
 Word shlVU(nat z, nat x, size_t s) {
 	if (s == 0) {
-		natCopy2(z, x);
+		natCopy(z, x);
 		return 0;
 	}
 	if (z.len == 0) {
@@ -253,7 +257,7 @@ Word shlVU(nat z, nat x, size_t s) {
 static Word shrVU(nat z, nat x, size_t s) {
 	assert(x.len == z.len);
 	if (s == 0) {
-		natCopy2(z, x);
+		natCopy(z, x);
 		return 0;
 	}
 	if (z.len == 0) {
@@ -290,6 +294,7 @@ static nat natDivLarge(nat z, nat u, nat uIn, nat vIn, nat* r) {
 	q = natNorm(q);
 	shrVU(u, u, shift);
 	*r = natNorm(u);
+	natFree(&v);
 	return q;
 }
 

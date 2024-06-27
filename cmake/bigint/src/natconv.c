@@ -96,15 +96,17 @@ static nat natExpNN(nat z, nat x, nat y, nat m, bool slow) {
 	nat r = q;
 	for (size_t j = 0; j < w; ++j) {
 		zz = natSqr(z);
+		natFree(&z);
 		natSwap(&z, &zz);
 
 		if ((v & mask) != 0) {
 			zz = natMul(z, x);
+			natFree(&z);
 			natSwap(&z, &zz);
 		}
 		if (m.len != 0) {
-			nat r = natNewLen(0);
 			zz = natDiv(zz, r, z, m, &r);
+			natFree(&z);
 			natSwap(&zz, &q);
 			natSwap(&z, &r);
 		}
@@ -114,13 +116,16 @@ static nat natExpNN(nat z, nat x, nat y, nat m, bool slow) {
 		v = y.data[i];
 		for (ssize_t j = 0; j < _W; ++j) {
 			zz = natSqr(z);
+			natFree(&z);
 			natSwap(&z, &zz);
 			if ((v & mask) != 0) {
 				zz = natMul(z, x);
+				natFree(&z);
 				natSwap(&z, &zz);
 			}
 			if (m.len != 0) {
 				zz = natDiv(zz, r, z, m, &r);
+				natFree(&z);
 				natSwap(&zz, &q);
 				natSwap(&r, &z);
 			}
@@ -131,7 +136,12 @@ static nat natExpNN(nat z, nat x, nat y, nat m, bool slow) {
 }
 
 nat natExpWW(nat z, Word x, Word y) {
-	return natExpNN(z, natNew(x), natNew(y), natNewLen(0), false);
+	nat nx = natNew(x);
+	nat ny = natNew(y);
+	nat r = natExpNN(z, nx, ny, natNewLen(0), false);
+	natFree(&nx);
+	natFree(&ny);
+	return r;
 }
 
 divisor* divisors(ssize_t m, Word b, ssize_t ndigits, Word bb, int* divisorNum) {
@@ -143,8 +153,7 @@ divisor* divisors(ssize_t m, Word b, ssize_t ndigits, Word bb, int* divisorNum) 
 	for (size_t words = leafSize; words < ((size_t)m>>1U); words <<= 1U) {
 		++k;
 	}
-	divisor* table = NULL;
-	table = (divisor*)calloc(k, sizeof(divisor));
+	divisor* table = (divisor*)calloc(k, sizeof(divisor));
 	if (table == NULL) {
 		return NULL;
 	}
@@ -161,12 +170,13 @@ divisor* divisors(ssize_t m, Word b, ssize_t ndigits, Word bb, int* divisorNum) 
 					table[i].bbb = natSqr(table[i - 1].bbb);
 					table[i].ndigits = 2 * table[i - 1].ndigits;
 				}
-				nat larger = natCopy(table[i].bbb);
+				nat larger = natDup(table[i].bbb);
 				while (mulAddVWW(larger, larger, b, 0) == 0) {
-					natCopy2(table[i].bbb, larger);
+					natCopy(table[i].bbb, larger);
 					table[i].ndigits++;
 				}
 				table[i].nbits = natBitLen(table[i].bbb);
+				natFree(&larger);
 			}
 		}
 	}
@@ -186,7 +196,8 @@ static Word maxPow(Word b, ssize_t* n) {
 	return p;
 }
 
-void convertWords(nat q, char* s, ssize_t slen, Word b, int64_t ndigits, Word bb, divisor* table, int tableNum) {
+void convertWords(nat x, char* s, ssize_t slen, Word b, int64_t ndigits, Word bb, divisor* table, int tableNum) {
+	nat q = natDup(x);
 	if (table != NULL) {
 		int index = tableNum - 1;
 		nat r = natNewLen(0);
@@ -205,12 +216,15 @@ void convertWords(nat q, char* s, ssize_t slen, Word b, int64_t ndigits, Word bb
 			convertWords(r, &s[h], table[index].ndigits, b, ndigits, bb, table, index);
 			slen = h;
 		}
+		natFree(&r);
 	}
 	ssize_t i = slen;
 	if (b == 10) {
 		while (q.len > 0) {
 			Word r = 0;
-			q = natDivW(q, bb, &r);
+			nat nq = natDivW(q, bb, &r);
+			natFree(&q);
+			q = nq;
 			for (ssize_t j = 0; j < ndigits && i > 0; j++) {
 				--i;
 				Word t = r / 10;
@@ -218,17 +232,21 @@ void convertWords(nat q, char* s, ssize_t slen, Word b, int64_t ndigits, Word bb
 				r = t;
 			}
 		}
+		natFree(&q);
 	}
 	else {
 		while (q.len > 0) {
 			Word r = 0;
-			q = natDivW(q, bb, &r);
+			nat nq = natDivW(q, bb, &r);
+			natFree(&q);
+			q = nq;
 			for (ssize_t j = 0; j < ndigits && i > 0; j++) {
 				--i;
 				s[i] = digits[r % b];
 				r /= b;
 			}
 		}
+		natFree(&q);
 	}
 	while (i > 0) {
 		--i;
@@ -295,11 +313,13 @@ char* natI2a(nat x, bool neg, int base) {
 		Word bb = maxPow(b, &ndigits);
 		int tableNum = 0;
 		divisor* table = divisors(x.len, b, ndigits, bb, &tableNum);
-		nat q = natCopy(x);
-		convertWords(q, s, slen, b, ndigits, bb, table, tableNum);
+		convertWords(x, s, slen, b, ndigits, bb, table, tableNum);
 		i = 0;
 		while (s[i] == '0') {
 			++i;
+		}
+		for (int i = 0; i < tableNum; ++i) {
+			natFree(&table[i].bbb);
 		}
 		free(table);
 	}

@@ -180,6 +180,7 @@ nat natMul(nat x, nat y) {
 		nat y1 = natPart(y, k, y.len);
 		nat t = natMul(x0, y1);
 		addAt(z, t, k);
+		natFree(&t);
 
 		y0 = natNorm(y0);
 		for (ssize_t i = k; i < x.len; i += k) {
@@ -190,8 +191,10 @@ nat natMul(nat x, nat y) {
 			xi = natNorm(xi);
 			t = natMul(xi, y0);
 			addAt(z, t, i);
+			natFree(&t);
 			t = natMul(xi, y1);
 			addAt(z, t, i + k);
+			natFree(&t);
 		}
 	}
 	return natNorm(z);
@@ -212,6 +215,7 @@ nat basicSqr(nat z,nat x) {
 	nat t1 = natPart(t, 1, 2 * n - 1);
 	t.data[2 * n - 1] = shlVU(t1, t1, 1);
 	addVV(z, z, t);
+	natFree(&t);
 	return z;
 }
 
@@ -238,7 +242,7 @@ void karatsubaSqr(nat z, nat x) {
 	karatsubaSqr(p, xd);
 
 	nat r = natPart(z, n * 4, z.len);
-	natCopy2(r, natPart(z, 0, n * 2));
+	natCopy(r, natPart(z, 0, n * 2));
 
 	nat z2 = natPart(z, n2, z.len);
 	karatsubaAdd(z2, r, n);
@@ -281,8 +285,10 @@ nat natSqr(nat x) {
 		nat t = natMul(x0, x1);
 		addAt(z, t, k);
 		addAt(z, t, k);
+		natFree(&t);
 		t = natSqr(x1);
 		addAt(z, t, 2 * k);
+		natFree(&t);
 	}
 	return natNorm(z);
 }
