@@ -1,0 +1,35 @@
+syntax = "proto3";
+package netmsg;
+
+enum EUserErrorType
+{
+	UserETNone = 0;
+	UserETOK = 1;
+	UserETNameExist = 2;
+	UserETNameOrPwdError = 3;
+	UserETNameNotExist = 4;
+	UserETRegFailed = 5;
+	UserETTypeNotExist = 6;
+	UserETReconnectFail = 7;
+	UserETReconnectOK = 8;
+	UserAnotherClientLogin = 9;
+}
+
+enum EUserType
+{
+	UserTypeGeneral = 0;
+	UserTypeGuest = 1;
+	UserTypeThird = 2;
+}
+
+enum EChannelType
+{
+	CTDefault = 0;
+	Third = 1;
+}
+
+enum ETipType
+{
+	TipTypeUp = 0;
+}
+

@@ -1,0 +1,49 @@
+syntax = "proto3";
+package netmsg;
+
+import "enums.proto";
+
+message pbPingPong
+{
+	uint32 time = 1;
+}
+
+message pbReqReg
+{
+	string userName = 1;
+	bytes psw = 2;
+	string channel = 3;
+}
+
+message pbRspReg
+{
+	EUserErrorType result = 1;
+}
+
+message pbReqLogin
+{
+	string userName = 1;
+	bytes psw = 2;
+	EUserType userType = 3;
+	EChannelType channelType = 4;
+	uint32 version = 5;
+	pbSysInfo sysInfoData = 6;
+	string ExtData = 7;
+}
+
+message pbRspLogin
+{
+	EUserErrorType result = 1;
+	uint64 userId = 2;
+	uint32 banTime = 3;
+	string verifyKey = 4;
+	string account = 5;
+}
+
+message pbSysInfo
+{
+	uint32 RuntimePlatform = 1;
+	string UniqueId = 2;
+	string DeviceModel = 3;
+	string OS = 4;
+}

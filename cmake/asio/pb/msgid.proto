@@ -1,0 +1,19 @@
+syntax = "proto3";
+package netmsg;
+
+enum NetCmdID
+{
+	CmdNone = 0;
+	Ping = 1;
+	Pong = 2;
+	SecurityInit = 3;
+
+	// 请求注册
+	ReqReg 						= 81;
+	// 回复注册
+	RspReg 						= 82;
+	// 请求登录
+	ReqLogin 					= 83;
+	// 回复登录
+	RspLogin 					= 84;
+}
