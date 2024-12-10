@@ -13,6 +13,6 @@ void login(int fd, netmsg::pbReqLogin &login) {
 
 int main(int argc, char **argv) {
   RegNetMsg(netmsg::ReqLogin, login);
-  initNet(6666);
+  initNet(8000);
   printf("test\n");
 }
