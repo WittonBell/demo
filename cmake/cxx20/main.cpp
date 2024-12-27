@@ -4,6 +4,7 @@
 #include <set>
 import libA;
 import libB;
+import libC;
 import stdm;
 
 #ifdef _MSC_VER
@@ -33,7 +34,13 @@ enum EA
 
 int main(int argc, char* argv[])
 {
+	Player p;
+	Bag* bag = new Bag(&p);
+	bag->AddItem(new Item());
+	moduleCFoo();
+#if __clang__
 	int ver = __clang_major__;
+#endif
 	std::string str = "test";
 	std::set<std::string> set;
 	set.insert(str);
@@ -48,7 +55,6 @@ int main(int argc, char* argv[])
 	a.foo();
 	T1<int> b;
 	b.m_a = 1;
-	Player p;
 
 	return 0;
 }

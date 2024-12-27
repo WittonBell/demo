@@ -2,7 +2,7 @@ module;
 #include <iostream>
 export module libA:test;
 import stdm;
-import libC;
+import libB;
 
 export class Test
 {

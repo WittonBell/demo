@@ -1,16 +1,26 @@
-export module libC;
+module libB;
 import stdm;
 
-export class Bag
+Bag::Bag(IPlayer* owner)
 {
-public:
-	Bag(IPlayer* owner)
-	{
-		owner->SendMsg();
-	}
+	owner->SendMsg();
+}
 
-	void AddItem()
-	{
+void Bag::AddItem(Item* p)
+{
+	p->GetNum();
+}
 
-	}
-};
+Item::Item()
+{
+}
+
+int Item::GetNum()
+{
+	return 0;
+}
+
+int max(int x, int y)
+{
+	return x > y ? x : y;
+}
