@@ -1,3 +1,4 @@
+#include <string.h>
 #include <winsock2.h>
 #include <windows.h>
 #include <stdio.h>
@@ -7,6 +8,10 @@
 #include <mswsock.h>
 
 #pragma comment(lib, "ws2_32.lib")
+
+#if __STDC_VERSION__ < 202311L
+#define nullptr NULL
+#endif
 
 typedef enum IoKind
 {
@@ -30,7 +35,7 @@ BOOL PostRead(IoData* data)
 	memset(&data->Overlapped, 0, sizeof(data->Overlapped));
 	data->opCode = IoREAD;
 	DWORD dwFlags = 0;
-	int nRet = WSARecv(data->cliSock, &data->wsabuf, 1, &data->nBytes, &dwFlags, &data->Overlapped, NULL);
+	int nRet = WSARecv(data->cliSock, &data->wsabuf, 1, &data->nBytes, &dwFlags, &data->Overlapped, nullptr);
 	if (nRet == SOCKET_ERROR && (ERROR_IO_PENDING != WSAGetLastError()))
 	{
 		printf("WASRecv Failed:%d\n", WSAGetLastError());
@@ -45,7 +50,7 @@ BOOL PostWrite(IoData* data)
 	memset(&data->Overlapped, 0, sizeof(data->Overlapped));
 	data->opCode = IoWRITE;
 	printf("%lld Send %s\n", data->cliSock, data->wsabuf.buf);
-	int nRet = WSASend(data->cliSock, &data->wsabuf, 1, &data->nBytes, 0, &data->Overlapped, NULL);
+	int nRet = WSASend(data->cliSock, &data->wsabuf, 1, &data->nBytes, 0, &data->Overlapped, nullptr);
 	if (nRet == SOCKET_ERROR && (ERROR_IO_PENDING != WSAGetLastError()))
 	{
 		printf("WASSend Failed:%d", WSAGetLastError());
@@ -57,14 +62,14 @@ BOOL PostWrite(IoData* data)
 
 DWORD WINAPI WorkerThread(HANDLE hIOCP)
 {
-	IoData* ctx = NULL;
+	IoData* ctx = nullptr;
 	DWORD dwIoSize = 0;
 	void* lpCompletionKey = NULL;
-	LPOVERLAPPED lpOverlapped = NULL;
+	LPOVERLAPPED lpOverlapped = nullptr;
 
 	while (1)
 	{
-		GetQueuedCompletionStatus(hIOCP, &dwIoSize, (PULONG_PTR)&lpCompletionKey, (LPOVERLAPPED*)&lpOverlapped, INFINITE);
+		GetQueuedCompletionStatus(hIOCP, &dwIoSize, (PULONG_PTR)&lpCompletionKey, &lpOverlapped, INFINITE);
 		ctx = (IoData*)lpOverlapped;
 		if (dwIoSize == 0)
 		{
@@ -103,7 +108,7 @@ void CloseConn(IoData* ctx)
 	if (ctx->wsabuf.buf != NULL)
 	{
 		free(ctx->wsabuf.buf);
-		ctx->wsabuf.buf = NULL;
+		ctx->wsabuf.buf = nullptr;
 	}
 	closesocket(ctx->cliSock);
 	free(ctx);
@@ -129,7 +134,7 @@ void NetWork(int port)
 		return;
 	}
 
-	SOCKET listenSocket = WSASocket(AF_INET, SOCK_STREAM, IPPROTO_TCP, NULL, 0, WSA_FLAG_OVERLAPPED);
+	SOCKET listenSocket = WSASocket(AF_INET, SOCK_STREAM, IPPROTO_TCP, nullptr, 0, WSA_FLAG_OVERLAPPED);
 
 	struct sockaddr_in server;
 	server.sin_family = AF_INET;
@@ -154,22 +159,22 @@ void NetWork(int port)
 	HANDLE hIOCP = CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, 0, threadCount);
 	if (hIOCP == NULL)
 	{
-		printf("CreateIoCompletionPort failed:%d", GetLastError());
+		printf("CreateIoCompletionPort failed:%lu", GetLastError());
 		return;
 	}
 	for (int i = 0; i < threadCount; ++i)
 	{
 		DWORD dwThreadId = 0;
-		HANDLE hThread = CreateThread(NULL, 0, WorkerThread, hIOCP, 0, &dwThreadId);
+		HANDLE hThread = CreateThread(nullptr, 0, WorkerThread, hIOCP, 0, &dwThreadId);
 		if (hThread == NULL)
 		{
-			printf("CreateThread failed:%d", GetLastError());
+			printf("CreateThread failed:%lu", GetLastError());
 			continue;
 		}
 		CloseHandle(hThread);
 	}
 
-	LPFN_ACCEPTEX lpfnAcceptEx = NULL;
+	LPFN_ACCEPTEX lpfnAcceptEx = nullptr;
 	GUID GuidAcceptEx = WSAID_ACCEPTEX;
 	DWORD dwBytes = 0;
 
@@ -182,8 +187,8 @@ void NetWork(int port)
 	// than refer to the Mswsock.lib library.
 	int iResult = WSAIoctl(listenSocket, SIO_GET_EXTENSION_FUNCTION_POINTER,
 		&GuidAcceptEx, sizeof(GuidAcceptEx),
-		&lpfnAcceptEx, sizeof(lpfnAcceptEx),
-		&dwBytes, NULL, NULL);
+		(LPVOID)&lpfnAcceptEx, sizeof(lpfnAcceptEx),
+		&dwBytes, nullptr, nullptr);
 	if (iResult == SOCKET_ERROR)
 	{
 		wprintf(L"WSAIoctl failed with error: %u\n", WSAGetLastError());
@@ -201,7 +206,7 @@ void NetWork(int port)
 			break;
 		}
 
-		SOCKET cliSock = WSASocket(AF_INET, SOCK_STREAM, IPPROTO_TCP, NULL, 0, WSA_FLAG_OVERLAPPED);
+		SOCKET cliSock = WSASocket(AF_INET, SOCK_STREAM, IPPROTO_TCP, nullptr, 0, WSA_FLAG_OVERLAPPED);
 		curAcceptSock = cliSock;
 
 		data->cliSock = cliSock;
@@ -257,9 +262,9 @@ void NetWork(int port)
 			continue;
 		}
 		printf("Client:%lld connected.\n", cliSock);
-		if (CreateIoCompletionPort((HANDLE)cliSock, hIOCP, 0, 0) == NULL)
+		if (CreateIoCompletionPort((HANDLE)cliSock, hIOCP, 0, 0) == nullptr)
 		{
-			printf("Binding Client Socket to IO Completion Port Failed:%u\n", GetLastError());
+			printf("Binding Client Socket to IO Completion Port Failed:%lu\n", GetLastError());
 			CloseConn(data);
 			continue;
 		}
@@ -268,7 +273,7 @@ void NetWork(int port)
 	}
 	for (int i = 0; i < threadCount; ++i)
 	{
-		PostQueuedCompletionStatus(hIOCP, 0, 0, 0);
+		PostQueuedCompletionStatus(hIOCP, 0, 0, nullptr);
 	}
 	closesocket(listenSocket);
 	WSACleanup();

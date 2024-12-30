@@ -4,7 +4,9 @@ project(t VERSION 0.1.0)
 include(CTest)
 enable_testing()
 
-add_executable(server "server_ex.c")
+set(CMAKE_C_STANDARD 23)
+
+add_executable(server server_ex.c)
 add_executable(client client.c)
 
 target_link_libraries(server ws2_32 Mswsock)

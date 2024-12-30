@@ -1,11 +1,15 @@
-#include <winsock2.h>
-#include <windows.h>
+#include <fcntl.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <signal.h>
-#include <fcntl.h>
+#include <windows.h>
+#include <winsock2.h>
 
 #pragma comment(lib, "ws2_32.lib")
+
+#if __STDC_VERSION__ < 202311L
+#define nullptr NULL
+#endif
 
 typedef enum IoKind
 {
@@ -34,7 +38,7 @@ BOOL PostRead(IoData* data)
 	memset(&data->Overlapped, 0, sizeof(data->Overlapped));
 	data->opCode = IoREAD;
 	DWORD dwFlags = 0;
-	int nRet = WSARecv(data->cliSock, &data->wsabuf, 1, &data->nBytes, &dwFlags, &data->Overlapped, NULL);
+	int nRet = WSARecv(data->cliSock, &data->wsabuf, 1, &data->nBytes, &dwFlags, &data->Overlapped, nullptr);
 	if (nRet == SOCKET_ERROR && (ERROR_IO_PENDING != WSAGetLastError()))
 	{
 		printf("WASRecv Failed:%d\n", WSAGetLastError());
@@ -49,7 +53,7 @@ BOOL PostWrite(IoData* data)
 	memset(&data->Overlapped, 0, sizeof(data->Overlapped));
 	data->opCode = IoWRITE;
 	printf("%lld Send %s\n", data->cliSock, data->wsabuf.buf);
-	int nRet = WSASend(data->cliSock, &data->wsabuf, 1, &data->nBytes, 0, &(data->Overlapped), NULL);
+	int nRet = WSASend(data->cliSock, &data->wsabuf, 1, &data->nBytes, 0, &(data->Overlapped), nullptr);
 	if (nRet == SOCKET_ERROR && (ERROR_IO_PENDING != WSAGetLastError()))
 	{
 		printf("WASSend Failed:%d", WSAGetLastError());
@@ -61,18 +65,18 @@ BOOL PostWrite(IoData* data)
 
 DWORD WINAPI WorkerThread(HANDLE hIOCP)
 {
-	IoData* ctx = NULL;
+	IoData* ctx = nullptr;
 	DWORD dwIoSize = 0;
-	void* lpCompletionKey = NULL;
-	LPOVERLAPPED lpOverlapped = NULL;
+	void* lpCompletionKey = nullptr;
+	LPOVERLAPPED lpOverlapped = nullptr;
 
 	while (1)
 	{
-		GetQueuedCompletionStatus(hIOCP, &dwIoSize, (PULONG_PTR)&lpCompletionKey, (LPOVERLAPPED*)&lpOverlapped, INFINITE);
+		GetQueuedCompletionStatus(hIOCP, &dwIoSize, (PULONG_PTR)&lpCompletionKey, &lpOverlapped, INFINITE);
 		ctx = (IoData*)lpOverlapped;
 		if (dwIoSize == 0)
 		{
-			if (ctx == NULL)
+			if (ctx == nullptr)
 			{
 				printf("WorkerThread Exit...\n");
 				break;
@@ -84,7 +88,7 @@ DWORD WINAPI WorkerThread(HANDLE hIOCP)
 		if (ctx->opCode == IoREAD)
 		{
 			ctx->wsabuf.buf[dwIoSize] = 0;
-			PostWrite(ctx, dwIoSize);
+			PostWrite(ctx);
 		}
 		else if (ctx->opCode == IoWRITE)
 		{
@@ -104,18 +108,18 @@ void OnSignal(int sig)
 
 void SetNonblocking(SOCKET fd)
 {
-	// WindowsÏÂÓĞÁ½¸öº¯ÊıÉèÖÃÌ×½Ó×ÖÎª·Ç×èÈû£¬Ò»¸öÊÇ³£¼ûµÄioctlsocket£¬ÁíÒ»¸öÊÇ±ÈËü¸üÇ¿´óµÄWSAIoctl¡£
+	// Windowsä¸‹æœ‰ä¸¤ä¸ªå‡½æ•°è®¾ç½®å¥—æ¥å­—ä¸ºéé˜»å¡ï¼Œä¸€ä¸ªæ˜¯å¸¸è§çš„ioctlsocketï¼Œå¦ä¸€ä¸ªæ˜¯æ¯”å®ƒæ›´å¼ºå¤§çš„WSAIoctlã€‚
 #if 1
-	unsigned long inBuf = 1; // Èç¹ûÒªÆôÓÃ·Ç×èÖ¹Ä£Ê½£¬ÔòÎª·ÇÁã;Èç¹ûÒª½ûÓÃ¸ÃÄ£Ê½£¬ÔòÎªÁã¡£
+	unsigned long inBuf = 1; // å¦‚æœè¦å¯ç”¨éé˜»æ­¢æ¨¡å¼ï¼Œåˆ™ä¸ºéé›¶;å¦‚æœè¦ç¦ç”¨è¯¥æ¨¡å¼ï¼Œåˆ™ä¸ºé›¶ã€‚
 	DWORD lpcbBytesReturned = 0;
 	WSAOVERLAPPED Overlapped;
 	ZeroMemory(&Overlapped, sizeof(Overlapped));
-	if (SOCKET_ERROR == WSAIoctl(fd, FIONBIO, &inBuf, sizeof(inBuf), NULL, 0, &lpcbBytesReturned, &Overlapped, NULL))
+	if (SOCKET_ERROR == WSAIoctl(fd, FIONBIO, &inBuf, sizeof(inBuf), nullptr, 0, &lpcbBytesReturned, &Overlapped, nullptr))
 	{
 		printf("set socket:%lld non blocking failed:%d\n", fd, WSAGetLastError());
 	}
 #else
-	unsigned long ul = 1;  // Èç¹ûÒªÆôÓÃ·Ç×èÖ¹Ä£Ê½£¬ÔòÎª·ÇÁã;Èç¹ûÒª½ûÓÃ¸ÃÄ£Ê½£¬ÔòÎªÁã¡£
+	unsigned long ul = 1;  // å¦‚æœè¦å¯ç”¨éé˜»æ­¢æ¨¡å¼ï¼Œåˆ™ä¸ºéé›¶;å¦‚æœè¦ç¦ç”¨è¯¥æ¨¡å¼ï¼Œåˆ™ä¸ºé›¶ã€‚
 	int ret = ioctlsocket(fd, FIONBIO, &ul);
 	if (ret == SOCKET_ERROR)
 	{
@@ -134,7 +138,7 @@ void NetWork(int port)
 		return;
 	}
 
-	SOCKET m_socket = WSASocket(AF_INET, SOCK_STREAM, IPPROTO_TCP, NULL, 0, WSA_FLAG_OVERLAPPED);
+	SOCKET m_socket = WSASocket(AF_INET, SOCK_STREAM, IPPROTO_TCP, nullptr, 0, WSA_FLAG_OVERLAPPED);
 
 	struct sockaddr_in server;
 	server.sin_family = AF_INET;
@@ -156,43 +160,43 @@ void NetWork(int port)
 	GetSystemInfo(&sysInfo);
 	DWORD threadCount = sysInfo.dwNumberOfProcessors;
 
-	HANDLE hIOCP = CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, 0, threadCount);
-	if (hIOCP == NULL)
+	HANDLE hIOCP = CreateIoCompletionPort(INVALID_HANDLE_VALUE, nullptr, 0, threadCount);
+	if (hIOCP == nullptr)
 	{
-		printf("CreateIoCompletionPort failed:%d", GetLastError());
+		printf("CreateIoCompletionPort failed:%lu", GetLastError());
 		return;
 	}
 	for (int i = 0; i < threadCount; ++i)
 	{
 		DWORD dwThreadId = 0;
-		HANDLE hThread = CreateThread(NULL, 0, WorkerThread, hIOCP, 0, &dwThreadId);
-		if (hThread == NULL)
+		HANDLE hThread = CreateThread(nullptr, 0, WorkerThread, hIOCP, 0, &dwThreadId);
+		if (hThread == nullptr)
 		{
-			printf("CreateThread failed:%d", GetLastError());
+			printf("CreateThread failed:%lu", GetLastError());
 			continue;
 		}
 		CloseHandle(hThread);
 	}
-	// ÉèÖÃÎª·Ç×èÈûÄ£Ê½ºó£¬ÏÂÃæµÄacceptº¯Êı½«Á¢¼´·µ»Ø£¬²»»á×èÈû£»·ñÔòacceptº¯Êı»áµÈ´ıÒ»¸öĞÂµÄÁ¬½Óµ½À´Ê±£¬²Å»á·µ»Ø¡£
+	// è®¾ç½®ä¸ºéé˜»å¡æ¨¡å¼åï¼Œä¸‹é¢çš„acceptå‡½æ•°å°†ç«‹å³è¿”å›ï¼Œä¸ä¼šé˜»å¡ï¼›å¦åˆ™acceptå‡½æ•°ä¼šç­‰å¾…ä¸€ä¸ªæ–°çš„è¿æ¥åˆ°æ¥æ—¶ï¼Œæ‰ä¼šè¿”å›ã€‚
 	SetNonblocking(m_socket);
 	while (!IsExit)
 	{
-		SOCKET cliSock = accept(m_socket, NULL, NULL);
+		SOCKET cliSock = accept(m_socket, nullptr, nullptr);
 		if (cliSock == SOCKET_ERROR)
 		{
 			Sleep(10);
 			continue;
 		}
 		printf("Client:%lld connected.\n", cliSock);
-		if (CreateIoCompletionPort((HANDLE)cliSock, hIOCP, 0, 0) == NULL)
+		if (CreateIoCompletionPort((HANDLE)cliSock, hIOCP, 0, 0) == nullptr)
 		{
-			printf("Binding Client Socket to IO Completion Port Failed:%u\n", GetLastError());
+			printf("Binding Client Socket to IO Completion Port Failed:%lu\n", GetLastError());
 			closesocket(cliSock);
 		}
 		else
 		{
 			IoData* data = (IoData*)malloc(sizeof(IoData));
-			if (data == NULL)
+			if (data == nullptr)
 			{
 				printf("out of memory");
 				closesocket(cliSock);
@@ -205,7 +209,7 @@ void NetWork(int port)
 			PostRead(data);
 		}
 	}
-	PostQueuedCompletionStatus(hIOCP, 0, 0, 0);
+	PostQueuedCompletionStatus(hIOCP, 0, 0, nullptr);
 	closesocket(m_socket);
 	WSACleanup();
 }
