@@ -1,14 +1,14 @@
+#include <bit>
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
-#include <functional>
-#include <bit>
 #include <emmintrin.h>
+#include <functional>
 #include <random>
 
 template<typename K, typename V>
 class CSwissMap {
-    const int kWidth = 16;
+    static const int kWidth = 16;
     enum class Ctrl : int8_t {
         kEmpty = -128,   // 0b10000000
         kDeleted = -2,   // 0b11111110
@@ -42,7 +42,10 @@ public:
     CSwissMap& operator=(const CSwissMap&&) = delete;
 
     virtual ~CSwissMap() {
-        delete[] m_ctrl;
+		if (m_ctrl != nullptr) {
+			delete[] m_ctrl;
+			m_ctrl = nullptr;
+		}
         m_cap = 0;
         m_num = 0;
         m_growthInfo = 0;
@@ -73,6 +76,18 @@ public:
             return true;
         }
         return false;
+    }
+
+    // 遍历SwissMap，并逐个调用func函数，如果func函数返回true，则停止遍历
+    void foreach(bool (*func)(const K& key, V& value)) {
+        for (size_t i = 0; i < m_cap; ++i) {
+            if (int(m_ctrl[i]) >= 0) {
+                auto& slot = m_slot[i];
+                if (func(slot.k, slot.v)) {
+                    break;
+                }
+            }
+        }
     }
 
 private:
