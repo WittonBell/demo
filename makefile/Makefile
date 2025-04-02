@@ -75,7 +75,7 @@ EXTERNAL_LIBS :=
 #比如mkdir, cp, rm, echo等等，如果安装了Git及命令行工具，建议直接使用git安装目录下usr/bin路径
 CC := gcc
 CXX := g++
-LD := $(CXX)
+LD := ld
 ASM := nasm
 AR := ar
 OBJCOPY := objcopy
@@ -127,7 +127,11 @@ SRC_EXTS := .c .cpp .cc .cxx .c++ .s .S .asm
 #======================华丽的分割线=============================
 
 #小写函数
-to_lowercase = $(subst A,a,$(subst B,b,$(subst C,c,$(subst D,d,$(subst E,e,$(subst F,f,$(subst G,g,$(subst H,h,$(subst I,i,$(subst J,j,$(subst K,k,$(subst L,l,$(subst M,m,$(subst N,n,$(subst O,o,$(subst P,p,$(subst Q,q,$(subst R,r,$(subst S,s,$(subst T,t,$(subst U,u,$(subst V,v,$(subst W,w,$(subst X,x,$(subst Y,y,$(subst Z,z,$1))))))))))))))))))))))))))
+to_lowercase = $(subst A,a,$(subst B,b,$(subst C,c,$(subst D,d,$(subst E,e,\
+	$(subst F,f,$(subst G,g,$(subst H,h,$(subst I,i,$(subst J,j,$(subst K,k,\
+	$(subst L,l,$(subst M,m,$(subst N,n,$(subst O,o,$(subst P,p,$(subst Q,q,\
+	$(subst R,r,$(subst S,s,$(subst T,t,$(subst U,u,$(subst V,v,$(subst W,w,\
+	$(subst X,x,$(subst Y,y,$(subst Z,z,$1))))))))))))))))))))))))))
 
 BINARYDIR := $(call to_lowercase,$(CONFIG))
 
@@ -182,9 +186,9 @@ CXXFLAGS += $(addprefix -D,$(PREPROCESSOR_MACROS))
 ASFLAGS += $(addprefix -D,$(PREPROCESSOR_MACROS))
 
 #处理框架
-CFLAGS += $(addprefix -framework ,$(MACOS_FRAMEWORKS))
-CXXFLAGS += $(addprefix -framework ,$(MACOS_FRAMEWORKS))
-LDFLAGS += $(addprefix -framework ,$(MACOS_FRAMEWORKS))
+CFLAGS += $(addprefix -framework,$(MACOS_FRAMEWORKS))
+CXXFLAGS += $(addprefix -framework,$(MACOS_FRAMEWORKS))
+LDFLAGS += $(addprefix -framework,$(MACOS_FRAMEWORKS))
 
 #处理库目录
 LDFLAGS += $(addprefix -L,$(LIBRARY_DIRS))
@@ -303,6 +307,15 @@ IS_GCC_ASM = 1
 endif
 endif
 
+CCFLAGS = $(CFLAGS)
+CC_DEPFLAGS = -MMD -MF $(@:.o=.d) -MT $@
+CXX_DEPFLAGS = -MMD -MF $(@:.o=.d) -MT $@
+
+define COMPILE
+	@$(MKDIR) -p $(dir $@)
+	$($(1)) $($(1)FLAGS) $(PCH_$(1)_FLAGS) $($(1)_DEPFLAGS) -c $< -o $@
+endef
+
 ifeq ($(IS_GCC_ASM),1)
 CompileA 	:= $(ASM) $(CFLAGS) $(ASFLAGS) -c
 else
@@ -383,22 +396,22 @@ $(BINARYDIR)/$(basename $(TARGETNAME)).ihex: $(BINARYDIR)/$(TARGETNAME)
 ifeq ($(TARGETTYPE),APP)
 ifneq ($(SHOW_CMD_DETAIL),)
 $(BINARYDIR)/$(TARGETNAME): $(all_objs) $(EXTERNAL_LIBS)
-	$(LD) -o $(subst ../,__/, $@) $(LDFLAGS) $(START_GROUP) $(subst ../,__/, $(all_objs)) $(LIBRARY_LDFLAGS) $(END_GROUP)
+	$(CC) -o $(subst ../,__/, $@) $(LDFLAGS) $(START_GROUP) $(subst ../,__/, $(all_objs)) $(LIBRARY_LDFLAGS) $(END_GROUP)
 else
 $(BINARYDIR)/$(TARGETNAME): $(all_objs) $(EXTERNAL_LIBS)
 	@$(ECHO) Link App $(subst ../,__/, $@)
-	@$(LD) -o $(subst ../,__/, $@) $(LDFLAGS) $(START_GROUP) $(subst ../,__/, $(all_objs)) $(LIBRARY_LDFLAGS) $(END_GROUP)
+	@$(CC) -o $(subst ../,__/, $@) $(LDFLAGS) $(START_GROUP) $(subst ../,__/, $(all_objs)) $(LIBRARY_LDFLAGS) $(END_GROUP)
 endif
 endif
 
 ifeq ($(TARGETTYPE),SHARED)
 ifneq ($(SHOW_CMD_DETAIL),)
 $(BINARYDIR)/$(TARGETNAME): $(all_objs) $(EXTERNAL_LIBS)
-	$(LD) -shared -o $(subst ../,__/, $@) $(LDFLAGS) $(START_GROUP) $(subst ../,__/, $(all_objs)) $(LIBRARY_LDFLAGS) $(END_GROUP)
+	$(CC) -shared -o $(subst ../,__/, $@) $(LDFLAGS) $(START_GROUP) $(subst ../,__/, $(all_objs)) $(LIBRARY_LDFLAGS) $(END_GROUP)
 else
 $(BINARYDIR)/$(TARGETNAME): $(all_objs) $(EXTERNAL_LIBS)
 	@$(ECHO) Link Share lib $(subst ../,__/, $@)
-	@$(LD) -shared -o $(subst ../,__/, $@) $(LDFLAGS) $(START_GROUP) $(subst ../,__/, $(all_objs)) $(LIBRARY_LDFLAGS) $(END_GROUP)
+	@$(CC) -shared -o $(subst ../,__/, $@) $(LDFLAGS) $(START_GROUP) $(subst ../,__/, $(all_objs)) $(LIBRARY_LDFLAGS) $(END_GROUP)
 endif
 endif
 
