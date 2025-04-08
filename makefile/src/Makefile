@@ -12,6 +12,8 @@
 #		优化以及fixed:修改头文件后，不会编译
 #  版本V1.3 （2017/03/13）
 #		优化：将依赖文件放在.deps目录下，make clean时不会重复生成
+#  版本V1.4 （2025/04/08）
+#		在编译时生成依赖文件，不再单独生成，减少编译次数。使用变量V控制显示命令行。
 #
 #  一个项目只需要在顶层目录配置一个Makefile，不需要各个目录单独配置，简单方便实用
 #  原文链接：http://blog.csdn.net/witton/article/details/56670748
@@ -119,9 +121,6 @@ SRC_EXTS := .c .cpp .cc .cxx .c++ .s .S .asm
 #如果生成十六进制文件，需要打开此开关
 #GENERATE_IHEX_FILE := 1
 
-#是否显示详细的命令行
-#SHOW_CMD_DETAIL := 1
-
 #可修改区域结束，以下区域不建议修改，除非特别了解其含义
 
 #======================华丽的分割线=============================
@@ -139,8 +138,6 @@ ifeq ($(BINARYDIR),)
 error:
 	$(error Invalid configuration, please check your inputs)
 endif
-
-DEPS_DIR := .deps
 
 #如果没配置源文件目录，则默认为当前目录
 ifeq ($(SRC_ROOT_DIRS),)
@@ -274,16 +271,11 @@ all_objs := $(foreach x,$(CompileObjs),$(BINARYDIR)/$(x))
 ASM_EXT := .s .S .asm
 CompileCObjs := $(foreach x,$(filter-out $(ASM_EXT),$(SRC_EXTS)),$(patsubst %$(x),%.d,$(filter %$(x),$(Source))))
 all_Cobjs := $(foreach x,$(CompileCObjs),$(BINARYDIR)/$(x))
-all_Deps := $(subst ../,__/, $(foreach x,$(CompileCObjs),$(DEPS_DIR)/$(x)))
+all_Deps := $(subst ../,__/, $(foreach x,$(all_Cobjs),$(x)))
 
 DEPS := $(all_Deps:.o=.d)
+#$(warning $(DEPS))
 
-revert0 = $(2) $(1)
-define revert
-$(foreach x,$(DEPS),$(eval TempStep = $(call revert0, $(TempStep),$(x)))) $(TempStep)
-endef
-
-AllStep := $(call revert,$(DEPS))
 AllStep += $(CompileObjs)
 
 WordNum := $(words $(AllStep))
@@ -311,49 +303,32 @@ CCFLAGS = $(CFLAGS)
 CC_DEPFLAGS = -MMD -MF $(@:.o=.d) -MT $@
 CXX_DEPFLAGS = -MMD -MF $(@:.o=.d) -MT $@
 
+ifndef V
 define COMPILE
-	@$(MKDIR) -p $(dir $@)
-	$($(1)) $($(1)FLAGS) $(PCH_$(1)_FLAGS) $($(1)_DEPFLAGS) -c $< -o $@
+    @$(MKDIR) -p $(dir $@)
+    @$(ECHO) [$(call ShowProgress,$<)] $(1) $<
+    @$($(1)) $($(1)FLAGS) $($(1)_DEPFLAGS) -c -o $@ $<
 endef
+else
+define COMPILE
+    @$(MKDIR) -p $(dir $@)
+    @$(ECHO) [$(call ShowProgress,$<)] \
+    $($(1)) $($(1)FLAGS) $($(1)_DEPFLAGS) -c -o $@ $<
+    @$($(1)) $($(1)FLAGS) $($(1)_DEPFLAGS) -c -o $@ $<
+endef
+endif
+
+COMPILE_C = $(call COMPILE,CC)
+COMPILE_CXX = $(call COMPILE,CXX)
 
 ifeq ($(IS_GCC_ASM),1)
-CompileA 	:= $(ASM) $(CFLAGS) $(ASFLAGS) -c
+CompileA := $(ASM) $(CFLAGS) $(ASFLAGS) -c
 else
-CompileA 	:= $(ASM) $(ASFLAGS)
+CompileA := $(ASM) $(ASFLAGS)
 endif
 
-CompileC 	:= $(CC) $(PCH_FLAGS) $(CFLAGS) -c
-CompileCXX	:= $(CXX) $(PCH_X_FLAGS) $(CXXFLAGS) -c
-
-ifneq ($(SHOW_CMD_DETAIL),)
-define CompileSrc
-	@$(MKDIR) -p $(BINARYDIR)/$(subst ../,__/, $(dir $(1)))
-	@$(ECHO) -n [$(call ShowProgress,$(2))]
-	$(3) $(2) -o $(subst ../,__/, $(1))
-endef
-else
-define CompileSrc
-	@$(MKDIR) -p $(BINARYDIR)/$(subst ../,__/, $(dir $(1)))
-	@$(ECHO) [$(call ShowProgress,$(2))] Compile $(2)
-	@$(3) $(2) -o $(subst ../,__/, $(1))
-endef
-endif
-
-define CompileCDep
-	@$(MKDIR) -p $(subst ../,__/, $(dir $(1)))
-	@$(ECHO) [$(call ShowProgress,$(DEPS_DIR)/$(2))] Generate $(subst ../,__/,$(1))
-	@$(CC) -MM $(CFLAGS) $(2) > $(DEPS_DIR)/temp
-	@$(ECHO) -n $(subst ./,, $(dir $(1))) > $(subst ../,__/,$(1))
-	@$(CC) -MM $(CFLAGS) $(2) >> $(subst ../,__/,$(1))
-endef
-
-define CompileCXXDep
-	@$(MKDIR) -p $(subst ../,__/, $(dir $(1)))
-	@$(ECHO) [$(call ShowProgress,$(DEPS_DIR)/$(2))] Generate $(subst ../,__/,$(1))
-	@$(CXX) -MM $(CXXFLAGS) $(2) > $(DEPS_DIR)/temp
-	@$(ECHO) -n $(subst ./,, $(dir $(1))) > $(subst ../,__/,$(1))
-	@$(CXX) -MM $(CXXFLAGS) $(2) >> $(subst ../,__/,$(1))
-endef
+CompileC 	:= $(CC) $(PCH_FLAGS) $(CFLAGS) $(CC_DEPFLAGS)
+CompileCXX	:= $(CXX) $(PCH_X_FLAGS) $(CXXFLAGS) $(CXX_DEPFLAGS)
 
 PRIMARY_OUTPUTS :=
 
@@ -369,21 +344,17 @@ ifeq ($(PRIMARY_OUTPUTS),)
 PRIMARY_OUTPUTS := $(BINARYDIR)/$(TARGETNAME)
 endif
 
-.PHONY: all clean rebuild distclean cleandeps help
+.PHONY: all clean rebuild help
 
 .SUFFIXES:
 
 all: $(PRIMARY_OUTPUTS)
-	@$(RM) $(DEPS_DIR)/temp
 	@$(ECHO) Built OK.
 
 clean:
 	@$(RM) $(BINARYDIR)
 
-cleandeps:
-	@$(RM) $(DEPS_DIR)
-
-distclean: clean cleandeps
+distclean: clean
 
 rebuild: clean all
 
@@ -430,41 +401,25 @@ $(BINARYDIR):
 	@$(MKDIR) $(BINARYDIR)
 
 #Makefile的生成规则
-#生成依赖文件
-$(DEPS_DIR)/%.d : %.c
-	$(call CompileCDep,$@,$<)
-
-$(DEPS_DIR)/%.d : %.cpp
-	$(call CompileCXXDep,$@,$<)
-
-$(DEPS_DIR)/%.d : %.cxx
-	$(call CompileCXXDep,$@,$<)
-
-$(DEPS_DIR)/%.d : %.cc
-	$(call CompileCXXDep,$@,$<)
-
-$(DEPS_DIR)/%.d : %.c++
-	$(call CompileCXXDep,$@,$<)
-
 #C文件的生成规则
 $(BINARYDIR)/%.o : %.c $(PCH_FILE)
-	$(call CompileSrc,$@,$<,$(CompileC))
+	$(COMPILE_C)
 
 #C++的.cpp文件的生成规则
 $(BINARYDIR)/%.o : %.cpp $(PCH_X_FILE)
-	$(call CompileSrc,$@,$<,$(CompileCXX))
+	$(COMPILE_CXX)
 
 #C++的.cc文件的生成规则
 $(BINARYDIR)/%.o : %.cc $(PCH_X_FILE)
-	$(call CompileSrc,$@,$<,$(CompileCXX))
+	$(COMPILE_CXX)
 
 #C++的.cxx文件的生成规则
 $(BINARYDIR)/%.o : %.cxx $(PCH_X_FILE)
-	$(call CompileSrc,$@,$<,$(CompileCXX))
+	$(COMPILE_CXX)
 
 #C++的.c++文件的生成规则
 $(BINARYDIR)/%.o : %.c++ $(PCH_X_FILE)
-	$(call CompileSrc,$@,$<,$(CompileCXX))
+	$(COMPILE_CXX)
 
 #Asm的.S文件生成规则
 $(BINARYDIR)/%.o : %.S
@@ -496,22 +451,16 @@ $(BINARYDIR)/$(PCH_X) : $(PCH_X_H)
 	@$(CP) $(PCH_X_H) $(BINARYDIR)/$(PCH_X_H)
 endif
 
-ifndef NODEP
-ifneq ($(DEPS),)
-sinclude $(DEPS)
-endif
-endif
+-include $(DEPS)
 
 #生成规则结束
 
 help:
-	@$(ECHO) "C/C++ general Makefile V1.3"
+	@$(ECHO) "C/C++ general Makefile V1.4"
 	@$(ECHO) "Copyright(C) 2017     E_Mail:witton@163.com by Witton Bell"
 	@$(ECHO) "Usage:make [Target]"
 	@$(ECHO) "Target:"
 	@$(ECHO) "     all          compile and link to target directory(debug or release)"
 	@$(ECHO) "     clean        remove target directory(debug or release)"
-	@$(ECHO) "     cleandeps    remove depends directory(.deps)"
-	@$(ECHO) "     distclean    run target clean and cleandeps"
 	@$(ECHO) "     rebuild      run target clean and all"
 	@$(ECHO) "     help         show this help"
