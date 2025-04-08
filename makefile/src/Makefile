@@ -66,8 +66,8 @@ PREPROCESSOR_MACROS :=
 #工具集，Windows下最好是填写MinGW命令行工具的绝对路径，并且路径中需要使用/分隔
 #因为Windows下的一些命令无相应的参数，会报错，
 #比如mkdir, cp, rm, echo等等，如果安装了Git及命令行工具，建议直接使用git安装目录下usr/bin路径
-CC := gcc
-CXX := g++
+CC := clang
+CXX := clang++
 LD := ld
 ASM := nasm
 AR := ar
@@ -280,8 +280,8 @@ AllSource := $(call HandlePath, $(all_source_files))
 AllExcludeSource := $(call HandlePath, $(EXCLUDE_FILES))
 
 Source := $(filter-out $(AllExcludeSource),$(AllSource))
-
-CompileObjs := $(foreach x,$(SRC_EXTS),$(patsubst %$(x),%.o,$(filter %$(x),$(Source))))
+#直接在文件名后面添加.o扩展名，以避免%.c与%.cc生成同名%.o
+CompileObjs := $(foreach x,$(SRC_EXTS),$(addsuffix .o,$(filter %$(x),$(Source))))
 all_objs := $(foreach x,$(CompileObjs),$(BINARYDIR)/$(x))
 
 ASM_EXT := .s .S .asm
@@ -292,11 +292,11 @@ all_Deps := $(subst ../,__/, $(foreach x,$(all_Cobjs),$(x)))
 DEPS := $(all_Deps:.o=.d)
 
 ifneq ($(PCH_H),)
-AllStep += $(PCH_FILE)
+AllStep += $(call HandlePath, $(PCH_FILE))
 endif
 
 ifneq ($(PCH_X_H),)
-AllStep += $(PCH_X_FILE)
+AllStep += $(call HandlePath, $(PCH_X_FILE))
 endif
 
 AllStep += $(CompileObjs)
@@ -310,7 +310,7 @@ $(foreach x,$(ProgressInfo),$(if $(filter $(basename $(x)),$(1)),$(subst .,,$(su
 endef
 
 define ShowProgress
-$(strip $(call FindProgress,$(basename $(1))))/$(WordNum)
+$(strip $(call FindProgress,$(1)))/$(WordNum)
 endef
 
 IS_GCC_ASM :=
@@ -324,20 +324,23 @@ endif
 
 CCFLAGS = $(CFLAGS)
 CC_DEPFLAGS = -MMD -MF $(@:.o=.d) -MT $@
+CC_PCH_FLAGS = $(PCH_FLAGS)
+
 CXX_DEPFLAGS = -MMD -MF $(@:.o=.d) -MT $@
+CXX_PCH_FLAGS = $(PCH_X_FLAGS)
 
 ifndef V
 define COMPILE
     @$(MKDIR) -p $(dir $@)
     @$(ECHO) [$(call ShowProgress,$<)] $(1) $<
-    @$($(1)) $($(1)FLAGS) $($(1)_DEPFLAGS) -c -o $@ $<
+    @$($(1)) $($(1)FLAGS) $($(1)_DEPFLAGS) -c $< -o $@
 endef
 else
 define COMPILE
     @$(MKDIR) -p $(dir $@)
     @$(ECHO) [$(call ShowProgress,$<)] \
-    $($(1)) $($(1)FLAGS) $($(1)_DEPFLAGS) -c -o $@ $<
-    @$($(1)) $($(1)FLAGS) $($(1)_DEPFLAGS) -c -o $@ $<
+    $($(1)) $($(1)FLAGS) $($(1)_DEPFLAGS) -c $< -o $@
+    @$($(1)) $($(1)FLAGS) $($(1)_DEPFLAGS) -c $< -o $@
 endef
 endif
 
@@ -423,23 +426,23 @@ $(BINARYDIR):
 
 #Makefile的生成规则
 #C文件的生成规则
-$(BINARYDIR)/%.o : %.c $(PCH_FILE)
+$(BINARYDIR)/%.c.o : %.c $(PCH_FILE)
 	$(COMPILE_C)
 
 #C++的.cpp文件的生成规则
-$(BINARYDIR)/%.o : %.cpp $(PCH_X_FILE)
+$(BINARYDIR)/%.cpp.o : %.cpp $(PCH_X_FILE)
 	$(COMPILE_CXX)
 
 #C++的.cc文件的生成规则
-$(BINARYDIR)/%.o : %.cc $(PCH_X_FILE)
+$(BINARYDIR)/%.cc.o : %.cc $(PCH_X_FILE)
 	$(COMPILE_CXX)
 
 #C++的.cxx文件的生成规则
-$(BINARYDIR)/%.o : %.cxx $(PCH_X_FILE)
+$(BINARYDIR)/%.cxx.o : %.cxx $(PCH_X_FILE)
 	$(COMPILE_CXX)
 
 #C++的.c++文件的生成规则
-$(BINARYDIR)/%.o : %.c++ $(PCH_X_FILE)
+$(BINARYDIR)/%.c++.o : %.c++ $(PCH_X_FILE)
 	$(COMPILE_CXX)
 
 #Asm的.S文件生成规则
@@ -458,16 +461,16 @@ ifneq ($(PCH_H),)
 #C预编译头文件的生成规则
 $(PCH_FILE) : $(PCH_H)
 	@$(MKDIR) -p $(subst ../,__/, $(dir $@))
-	@$(ECHO) [$(call ShowProgress,$@)] Precompiled C header $<
-	@$(CC) $(CFLAGS) $^ -o $(subst ../,__/, $@)
+	@$(ECHO) [$(call ShowProgress,$(basename $@))] Precompiled C header $<
+	@$(CC) $(CFLAGS) -x c-header $^ -o $@
 endif
 
 ifneq ($(PCH_X_H),)
 #C++预编译头文件的生成规则
 $(PCH_X_FILE) : $(PCH_X_H)
 	@$(MKDIR) -p $(subst ../,__/, $(dir $@))
-	@$(ECHO) [$(call ShowProgress,$@)] Precompiled C++ header $<
-	@$(CXX) $(CXXFLAGS) $^ -o $(subst ../,__/, $@)
+	@$(ECHO) [$(call ShowProgress,$(basename $@))] Precompiled C++ header $<
+	@$(CXX) $(CXXFLAGS) -x c++-header $^ -o $@
 endif
 
 -include $(DEPS)
