@@ -39,9 +39,9 @@ TARGETTYPE := APP
 CONFIG ?= Debug
 
 # C 预编译头文件，支持带路径
-PCH_H =
+PCH_H = prec.h
 # C++ 预编译头文件，支持带路径
-PCH_X_H =
+PCH_X_H = precxx.h
 
 #源文件目录列表，可以填多个目录，如：src1 src2 ../src
 #如果没填写则默认为当前目录
@@ -62,16 +62,6 @@ LIBRARY_NAMES :=
 #公共宏定义
 PREPROCESSOR_MACROS :=
 
-#各种编译链接参数
-#汇编编译参数
-ASFLAGS := -f win64
-#ld链接参数
-LDFLAGS := -Wl,-gc-sections
-#公共编译参数，根据情况作修改
-COMMONFLAGS := -g -ffunction-sections -finput-charset=UTF-8 -fexec-charset=UTF-8 -fwide-exec-charset=UTF-16LE
-#额外的库文件
-EXTERNAL_LIBS :=
-
 #工具集，Windows下最好是填写MinGW命令行工具的绝对路径，并且路径中需要使用/分隔
 #因为Windows下的一些命令无相应的参数，会报错，
 #比如mkdir, cp, rm, echo等等，如果安装了Git及命令行工具，建议直接使用git安装目录下usr/bin路径
@@ -86,6 +76,16 @@ MKDIR = mkdir
 RM = rm -rf
 ECHO = echo
 SHELL = /bin/sh
+
+#各种编译链接参数
+#汇编编译参数
+ASFLAGS := -f win64
+#ld链接参数
+LDFLAGS := -Wl,-gc-sections
+#公共编译参数，根据情况作修改
+COMMONFLAGS := -g -ffunction-sections -finput-charset=UTF-8 -fexec-charset=UTF-8
+#额外的库文件
+EXTERNAL_LIBS :=
 
 #根据配置类型填写不同的参数
 ifeq ($(CONFIG), Debug)
@@ -104,6 +104,12 @@ else
 	LINUX_PACKAGES :=
 	CFLAGS := -O3
 	CXXFLAGS := -O3
+endif
+
+ifeq ($(CC), gcc)
+COMMONFLAGS += -fwide-exec-charset=UTF-16LE
+else ifeq ($(CC), clang)
+else
 endif
 
 #需要编译的源文件的扩展名列表
@@ -132,18 +138,18 @@ to_lowercase = $(subst A,a,$(subst B,b,$(subst C,c,$(subst D,d,$(subst E,e,\
 	$(subst R,r,$(subst S,s,$(subst T,t,$(subst U,u,$(subst V,v,$(subst W,w,\
 	$(subst X,x,$(subst Y,y,$(subst Z,z,$1))))))))))))))))))))))))))
 
-BINARYDIR := $(call to_lowercase,$(CONFIG))
-
-ifeq ($(BINARYDIR),)
-error:
-	$(error Invalid configuration, please check your inputs)
-endif
+#设置输出目录
+BINARYDIR := build/$(strip $(call to_lowercase,$(CONFIG)))
 
 #如果没配置源文件目录，则默认为当前目录
 ifeq ($(SRC_ROOT_DIRS),)
 	SRC_ROOT_DIRS = .
 endif
 
+# 这里需要设置一下路径，以支持预编译头的查找
+vpath %.h $(SRC_ROOT_DIRS) $(SRC_ROOT_DIRS)/src
+
+#遍历目录及子目录中的文件
 define walk
 $(wildcard $(addprefix $(1)/*, $(SRC_EXTS))) $(foreach e, $(wildcard $(1)/*), $(call walk, $(e)))
 endef
@@ -158,15 +164,17 @@ EXTERNAL_LIBS_COPIED := $(foreach lib, $(EXTERNAL_LIBS),$(BINARYDIR)/$(notdir $(
 #设置C预编译相关变量
 ifneq ($(PCH_H),)
 PCH = $(PCH_H).gch
-PCH_FLAGS := -Winvalid-pch -include $(BINARYDIR)/$(PCH_H)
 PCH_FILE := $(BINARYDIR)/$(PCH)
+PCH_FLAGS := -Winvalid-pch -include $(PCH_FILE)
+pch_objs += $(PCH_FILE)
 endif
 
 #设置C++预编译相关变量
 ifneq ($(PCH_X_H),)
 PCH_X = $(PCH_X_H).gch
-PCH_X_FLAGS := -Winvalid-pch -include $(BINARYDIR)/$(PCH_X_H)
 PCH_X_FILE := $(BINARYDIR)/$(PCH_X)
+PCH_X_FLAGS := -Winvalid-pch -include $(PCH_X_FILE)
+pch_objs += $(PCH_X_FILE)
 endif
 
 START_GROUP := -Wl,--start-group
@@ -274,7 +282,14 @@ all_Cobjs := $(foreach x,$(CompileCObjs),$(BINARYDIR)/$(x))
 all_Deps := $(subst ../,__/, $(foreach x,$(all_Cobjs),$(x)))
 
 DEPS := $(all_Deps:.o=.d)
-#$(warning $(DEPS))
+
+ifneq ($(PCH_H),)
+AllStep += $(PCH_FILE)
+endif
+
+ifneq ($(PCH_X_H),)
+AllStep += $(PCH_X_FILE)
+endif
 
 AllStep += $(CompileObjs)
 
@@ -366,10 +381,10 @@ $(BINARYDIR)/$(basename $(TARGETNAME)).ihex: $(BINARYDIR)/$(TARGETNAME)
 
 ifeq ($(TARGETTYPE),APP)
 ifneq ($(SHOW_CMD_DETAIL),)
-$(BINARYDIR)/$(TARGETNAME): $(all_objs) $(EXTERNAL_LIBS)
+$(BINARYDIR)/$(TARGETNAME): $(pch_objs) $(all_objs) $(EXTERNAL_LIBS)
 	$(CC) -o $(subst ../,__/, $@) $(LDFLAGS) $(START_GROUP) $(subst ../,__/, $(all_objs)) $(LIBRARY_LDFLAGS) $(END_GROUP)
 else
-$(BINARYDIR)/$(TARGETNAME): $(all_objs) $(EXTERNAL_LIBS)
+$(BINARYDIR)/$(TARGETNAME): $(pch_objs) $(all_objs) $(EXTERNAL_LIBS)
 	@$(ECHO) Link App $(subst ../,__/, $@)
 	@$(CC) -o $(subst ../,__/, $@) $(LDFLAGS) $(START_GROUP) $(subst ../,__/, $(all_objs)) $(LIBRARY_LDFLAGS) $(END_GROUP)
 endif
@@ -377,10 +392,10 @@ endif
 
 ifeq ($(TARGETTYPE),SHARED)
 ifneq ($(SHOW_CMD_DETAIL),)
-$(BINARYDIR)/$(TARGETNAME): $(all_objs) $(EXTERNAL_LIBS)
+$(BINARYDIR)/$(TARGETNAME): $(pch_objs) $(all_objs) $(EXTERNAL_LIBS)
 	$(CC) -shared -o $(subst ../,__/, $@) $(LDFLAGS) $(START_GROUP) $(subst ../,__/, $(all_objs)) $(LIBRARY_LDFLAGS) $(END_GROUP)
 else
-$(BINARYDIR)/$(TARGETNAME): $(all_objs) $(EXTERNAL_LIBS)
+$(BINARYDIR)/$(TARGETNAME): $(pch_objs) $(all_objs) $(EXTERNAL_LIBS)
 	@$(ECHO) Link Share lib $(subst ../,__/, $@)
 	@$(CC) -shared -o $(subst ../,__/, $@) $(LDFLAGS) $(START_GROUP) $(subst ../,__/, $(all_objs)) $(LIBRARY_LDFLAGS) $(END_GROUP)
 endif
@@ -388,10 +403,10 @@ endif
 
 ifeq ($(TARGETTYPE),STATIC)
 ifneq ($(SHOW_CMD_DETAIL),)
-$(BINARYDIR)/$(TARGETNAME): $(all_objs)
+$(BINARYDIR)/$(TARGETNAME): $(pch_objs) $(all_objs)
 	$(AR) -r $(subst ../,__/, $@) $(subst ../,__/, $^)
 else
-$(BINARYDIR)/$(TARGETNAME): $(all_objs)
+$(BINARYDIR)/$(TARGETNAME): $(pch_objs) $(all_objs)
 	@$(ECHO) Link Static lib $(subst ../,__/, $@)
 	@$(AR) -r $(subst ../,__/, $@) $(subst ../,__/, $^)
 endif
@@ -435,20 +450,18 @@ $(BINARYDIR)/%.o : %.asm
 
 ifneq ($(PCH_H),)
 #C预编译头文件的生成规则
-$(BINARYDIR)/$(PCH) : $(PCH_H)
+$(PCH_FILE) : $(PCH_H)
 	@$(MKDIR) -p $(subst ../,__/, $(dir $@))
-	@$(ECHO) Precompiled C header $<
+	@$(ECHO) [$(call ShowProgress,$@)] Precompiled C header $<
 	@$(CC) $(CFLAGS) $> $^ -o $(subst ../,__/, $@)
-	@$(CP) $(PCH_H) $(BINARYDIR)/$(PCH_H)
 endif
 
 ifneq ($(PCH_X_H),)
 #C++预编译头文件的生成规则
-$(BINARYDIR)/$(PCH_X) : $(PCH_X_H)
+$(PCH_X_FILE) : $(PCH_X_H)
 	@$(MKDIR) -p $(subst ../,__/, $(dir $@))
-	@$(ECHO) Precompiled C++ header $<
+	@$(ECHO) [$(call ShowProgress,$@)] Precompiled C++ header $<
 	@$(CXX) $(CXXFLAGS) $> $^ -o $(subst ../,__/, $@)
-	@$(CP) $(PCH_X_H) $(BINARYDIR)/$(PCH_X_H)
 endif
 
 -include $(DEPS)
