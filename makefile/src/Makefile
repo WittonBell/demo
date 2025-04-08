@@ -14,6 +14,7 @@
 #		优化：将依赖文件放在.deps目录下，make clean时不会重复生成
 #  版本V1.4 （2025/04/08）
 #		在编译时生成依赖文件，不再单独生成，减少编译次数。使用变量V控制显示命令行。
+#		生成的中间文件放在build下的debug或者release目录中
 #
 #  一个项目只需要在顶层目录配置一个Makefile，不需要各个目录单独配置，简单方便实用
 #  原文链接：http://blog.csdn.net/witton/article/details/56670748
@@ -58,7 +59,7 @@ INCLUDE_DIRS :=
 #库文件所在目录列表
 LIBRARY_DIRS :=
 #公共库文件名列表
-LIBRARY_NAMES :=
+LIBRARY_NAMES := event
 #公共宏定义
 PREPROCESSOR_MACROS :=
 
@@ -149,7 +150,7 @@ endif
 # 这里需要设置一下路径，以支持预编译头的查找
 vpath %.h $(SRC_ROOT_DIRS) $(SRC_ROOT_DIRS)/src
 
-#遍历目录及子目录中的文件
+#遍历目录及子目录中指定扩展名的文件
 define walk
 $(wildcard $(addprefix $(1)/*, $(SRC_EXTS))) $(foreach e, $(wildcard $(1)/*), $(call walk, $(e)))
 endef
@@ -264,8 +265,15 @@ else
 	all_source_files := $(STARTUPFILES) $(filter-out $(STARTUPFILES),$(SOURCEFILES))
 endif
 
+# 处理路径，将//替换成/，../替换成__/，去掉./
 define HandlePath
-$(foreach x,$(foreach x,$(foreach x,$(subst //,/,$(1)),$(subst ../,*/,$(x))),$(subst ./,,$(x))),$(subst */,../,$(x)))
+$(foreach x,\
+	$(foreach x,\
+		$(foreach x,\
+			$(subst //,/,$(1)),\
+			$(x)),\
+		$(subst ./,,$(x))),\
+	$(x))
 endef
 
 AllSource := $(call HandlePath, $(all_source_files))
@@ -369,8 +377,6 @@ all: $(PRIMARY_OUTPUTS)
 clean:
 	@$(RM) $(BINARYDIR)
 
-distclean: clean
-
 rebuild: clean all
 
 $(BINARYDIR)/$(basename $(TARGETNAME)).bin: $(BINARYDIR)/$(TARGETNAME)
@@ -453,7 +459,7 @@ ifneq ($(PCH_H),)
 $(PCH_FILE) : $(PCH_H)
 	@$(MKDIR) -p $(subst ../,__/, $(dir $@))
 	@$(ECHO) [$(call ShowProgress,$@)] Precompiled C header $<
-	@$(CC) $(CFLAGS) $> $^ -o $(subst ../,__/, $@)
+	@$(CC) $(CFLAGS) $^ -o $(subst ../,__/, $@)
 endif
 
 ifneq ($(PCH_X_H),)
@@ -461,7 +467,7 @@ ifneq ($(PCH_X_H),)
 $(PCH_X_FILE) : $(PCH_X_H)
 	@$(MKDIR) -p $(subst ../,__/, $(dir $@))
 	@$(ECHO) [$(call ShowProgress,$@)] Precompiled C++ header $<
-	@$(CXX) $(CXXFLAGS) $> $^ -o $(subst ../,__/, $@)
+	@$(CXX) $(CXXFLAGS) $^ -o $(subst ../,__/, $@)
 endif
 
 -include $(DEPS)
@@ -470,10 +476,98 @@ endif
 
 help:
 	@$(ECHO) "C/C++ general Makefile V1.4"
-	@$(ECHO) "Copyright(C) 2017     E_Mail:witton@163.com by Witton Bell"
+	@$(ECHO) "Copyright(C) 2017~2025  E_Mail:witton@163.com by Witton Bell"
 	@$(ECHO) "Usage:make [Target]"
 	@$(ECHO) "Target:"
 	@$(ECHO) "     all          compile and link to target directory(debug or release)"
 	@$(ECHO) "     clean        remove target directory(debug or release)"
 	@$(ECHO) "     rebuild      run target clean and all"
 	@$(ECHO) "     help         show this help"
+
+#
+# 自动化变量说明：
+# $@
+# 表示规则的目标文件名。如果目标是一个文档文件（Linux中，一般称.a文件为
+# 文档文件，也称为静态库文件），那么它代表这个文档的文件名。在多目标模式
+# 规则中，它代表的是哪个触发规则被执行的目标文件名。
+#
+# $%
+# 当规则的目标文件是一个静态库文件时，代表静态库的一个成员名。例如，规则
+# 的目标是“foo.a(bar.o)”，那么，“$%”的值就为“bar.o”，“$@”的值为“foo.a”。
+# 如果目标不是静态库文件，其值为空。
+#
+# $<
+# 规则的第一个依赖文件名。如果是一个目标文件使用隐含规则来重建，则它代表
+# 由隐含规则加入的第一个依赖文件。
+#
+# $?
+# 所有比目标文件更新的依赖文件列表，空格分割。如果目标是静态库文件名，代
+# 表的是库成员（.o文件）。
+#
+# $^
+# 规则的所有依赖文件列表，使用空格分隔。如果目标是静态库文件，它所代表的
+# 只能是所有库成员（.o文件）名。一个文件可重复的出现在目标的依赖中，变量
+# “$^”只记录它的一次引用情况。就是说变量“$^”会去掉重复的依赖文件。
+#
+# $+
+# 类似“$^”，但是它保留了依赖文件中重复出现的文件。主要用在程序链接时库
+# 的交叉引用场合。
+#
+# $*
+# 在模式规则和静态模式规则中，代表“茎”。“茎”是目标模式中“%”所代表的
+# 部分（当文件名中存在目录时，“茎”也包含目录（斜杠之前）部分，
+# 例如：文件“dir/a.foo.b”，当目标的模式为“a.%.b”时，
+# “$*”的值为“dir/a.foo”。“茎”对于构造相关文件名非常有用。
+# 自动化变量“$*”需要两点说明：
+# 1.对于一个明确指定的规则来说不存在“茎”，这种情况下“$*”的含义发
+# 生改变。此时，如果目标文件名带有一个可识别的后缀，
+# 那么“$*”表示文件中除后缀以外的部分。例如：“foo.c”
+# 则“$*”的值为：“foo”，因为.c是一个可识别的文件后缀名。GUN make
+# 对明确规则的这种奇怪的处理行为是为了和其它版本的make兼容。通
+# 常，在除静态规则和模式规则以外，明确指定目标文件的规则中应该避免使用这个变量。
+# 2.当明确指定文件名的规则中目标文件名包含不可识别的后缀时，此变量
+# 为空。
+# 自动化变量“$?”在显式规则中也是非常有用的，使用它规则可以指定只对更新
+# 以后的依赖文件进行操作。例如，静态库文件“libN.a”，它由一些.o文件组成。这个规
+# 则实现了只将更新后的.o文件加入到库中：
+# lib: foo.o bar.o lose.o win.o
+#  ar r lib $?
+# 以上罗列的自动量变量中。其中有四个在规则中代表文件名（$@、$<、$%、$*）。
+# 而其它三个的在规则中代表一个文件名列表。GUN make中，还可以通过这七个自动化
+# 变量来获取一个完整文件名中的目录部分和具体文件名部分。在这些变量中加入“D”
+# 或者“F”字符就形成了一系列变种的自动环变量。这些变量会出现在以前版本的make
+# 中，在当前版本的make中，可以使用“dir”或者“notdir”函数来实现同样的功能。
+#
+# $(@D)
+# 表示目标文件的目录部分（不包括斜杠）。如果“$@”是“dir/foo.o”，那么“$(@D)”
+# 的值为“dir”。如果“$@”不存在斜杠，其值就是“.”（当前目录）。注意它和函
+# 数“dir”的区别！
+#
+# $(@F)
+# 目标文件的完整文件名中除目录以外的部分（实际文件名）。如果“$@”为
+# “dir/foo.o”，那么“$(@F)”只就是“foo.o”。“$(@F)”等价于函数“$(notdir $@)”。
+#
+# $(*D)
+# $(*F)
+# 分别代表目标“茎”中的目录部分和文件名部分。
+#
+# $(%D)
+# $(%F)
+# 当以如“archive(member)”形式静态库为目标时，分别表示库文件成员
+# “member”名中的目录部分和文件名部分。它仅对这种形式的规则目标有效。
+#
+# $(<D)
+# $(<F)
+# 分别表示规则中第一个依赖文件的目录部分和文件名部分。
+#
+# $(^D)
+# $(^F)
+# 分别表示所有依赖文件的目录部分和文件部分（不存在同一文件）。
+#
+# $(+D)
+# $(+F)
+# 分别表示所有依赖文件的目录部分和文件部分（可存在重复文件）。
+#
+# $(?D)
+# $(?F)
+# 分别表示被更新的依赖文件的目录部分和文件名部分。
