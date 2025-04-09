@@ -80,11 +80,11 @@ SHELL = /bin/sh
 
 #各种编译链接参数
 #汇编编译参数
-ASFLAGS := -f win64
+ASMFLAGS := -f win64
 #ld链接参数
 LDFLAGS := -Wl,-gc-sections
 #公共编译参数，根据情况作修改
-COMMONFLAGS := -g -ffunction-sections -finput-charset=UTF-8 -fexec-charset=UTF-8
+COMMONFLAGS := -gdwarf-4 -ffunction-sections -finput-charset=UTF-8 -fexec-charset=UTF-8
 #额外的库文件
 EXTERNAL_LIBS :=
 
@@ -97,6 +97,7 @@ ifeq ($(CONFIG), Debug)
 	LINUX_PACKAGES :=
 	CFLAGS := -O0 -Wall
 	CXXFLAGS := -O0
+	ASMFLAGS += -g
 else
 	PREPROCESSOR_MACROS +=
 	LIBRARY_NAMES +=
@@ -111,13 +112,8 @@ ifeq ($(CC), gcc)
 COMMONFLAGS += -fwide-exec-charset=UTF-16LE
 else ifeq ($(CC), clang)
 else
+$(error Unsupport Compiler)
 endif
-
-#需要编译的源文件的扩展名列表
-SRC_EXTS := .c .cpp .cc .cxx .c++ .s .S .asm
-
-#如果是在Linux下编译，需要打开此开关
-#IS_LINUX_PROJECT := 1
 
 #如果需要生成Map文件，需要打开此开关
 #GENERATE_MAP_FILE := 1
@@ -131,6 +127,33 @@ SRC_EXTS := .c .cpp .cc .cxx .c++ .s .S .asm
 #可修改区域结束，以下区域不建议修改，除非特别了解其含义
 
 #======================华丽的分割线=============================
+
+#需要编译的源文件的扩展名列表
+SRC_EXTS := .c .cpp .cc .cxx .c++ .s .S .asm
+
+# 平台检测，Windows下的路径以分号分隔，其它的以冒号分隔
+ifeq ($(findstring ;,$(PATH)), ;)
+    UNAME := Windows
+else
+    UNAME := $(shell uname 2>/dev/null || echo Unknown)
+    UNAME := $(patsubst CYGWIN%,Cygwin,$(UNAME))
+    UNAME := $(patsubst MSYS%,MSYS,$(UNAME))
+    UNAME := $(patsubst MINGW%,MINGW,$(UNAME))
+endif
+
+#根据平台定义相应的宏
+ifneq ($(findstring $(UNAME), Windows, Cygwin, MSYS, MINGW),)
+PREPROCESSOR_MACROS += WIN32 WIN64
+else ifeq ($(UNAME), Linux)
+PREPROCESSOR_MACROS += LINUX
+IS_LINUX_PROJECT := 1
+else ifeq ($(UNAME), Darwin)
+PREPROCESSOR_MACROS += DARWIN OSX
+else ifeq ($(UNAME), FreeBSD)
+PREPROCESSOR_MACROS += FREEBSD
+else
+$(warning Platform:$(UNAME) not define `Platform Macro`)
+endif
 
 #小写函数
 to_lowercase = $(subst A,a,$(subst B,b,$(subst C,c,$(subst D,d,$(subst E,e,\
@@ -189,7 +212,7 @@ CXXFLAGS += $(addprefix -I,$(INCLUDE_DIRS))
 #处理宏定义
 CFLAGS += $(addprefix -D,$(PREPROCESSOR_MACROS))
 CXXFLAGS += $(addprefix -D,$(PREPROCESSOR_MACROS))
-ASFLAGS += $(addprefix -D,$(PREPROCESSOR_MACROS))
+ASMFLAGS += $(addprefix -D,$(PREPROCESSOR_MACROS))
 
 #处理框架
 CFLAGS += $(addprefix -framework,$(MACOS_FRAMEWORKS))
@@ -225,7 +248,7 @@ endif
 	ifeq ($(TARGETTYPE),SHARED)
 		CFLAGS += -fPIC
 		CXXFLAGS += -fPIC
-		ASFLAGS += -fPIC
+		ASMFLAGS += -fPIC
 		LIBRARY_LDFLAGS += -Wl,-soname,$(TARGETNAME)
 	endif
 
@@ -265,7 +288,7 @@ else
 	all_source_files := $(STARTUPFILES) $(filter-out $(STARTUPFILES),$(SOURCEFILES))
 endif
 
-# 处理路径，将//替换成/，../替换成__/，去掉./
+# 处理路径，将//替换成/，去掉./
 define HandlePath
 $(foreach x,\
 	$(foreach x,\
@@ -284,10 +307,11 @@ Source := $(filter-out $(AllExcludeSource),$(AllSource))
 CompileObjs := $(foreach x,$(SRC_EXTS),$(addsuffix .o,$(filter %$(x),$(Source))))
 all_objs := $(foreach x,$(CompileObjs),$(BINARYDIR)/$(x))
 
-ASM_EXT := .s .S .asm
-CompileCObjs := $(foreach x,$(filter-out $(ASM_EXT),$(SRC_EXTS)),$(patsubst %$(x),%.d,$(filter %$(x),$(Source))))
+# 筛选C/C++源文件
+C_EXT := .c .C .cc .cpp .cxx .c++
+CompileCObjs := $(foreach x,$(filter $(C_EXT),$(SRC_EXTS)),$(patsubst %$(x),%.d,$(filter %$(x),$(Source))))
 all_Cobjs := $(foreach x,$(CompileCObjs),$(BINARYDIR)/$(x))
-all_Deps := $(subst ../,__/, $(foreach x,$(all_Cobjs),$(x)))
+all_Deps := $(foreach x,$(all_Cobjs),$(x))
 
 DEPS := $(all_Deps:.o=.d)
 
@@ -313,48 +337,51 @@ define ShowProgress
 $(strip $(call FindProgress,$(1)))/$(WordNum)
 endef
 
-IS_GCC_ASM :=
-ifneq ($(filter $(ASM),$(CXX)),)
-IS_GCC_ASM = 1
-else
-ifneq ($(filter $(ASM),$(CC)),)
-IS_GCC_ASM = 1
-endif
-endif
+# IS_GCC_ASM :=
+# ifneq ($(filter $(ASM),$(CXX)),)
+# IS_GCC_ASM = 1
+# else
+# ifneq ($(filter $(ASM),$(CC)),)
+# IS_GCC_ASM = 1
+# endif
+# endif
 
 CCFLAGS = $(CFLAGS)
 CC_DEPFLAGS = -MMD -MF $(@:.o=.d) -MT $@
 CC_PCH_FLAGS = $(PCH_FLAGS)
+CC_C = -c
 
 CXX_DEPFLAGS = -MMD -MF $(@:.o=.d) -MT $@
 CXX_PCH_FLAGS = $(PCH_X_FLAGS)
+CXX_C = -c
+
+# NASM没有-c参数
+ASM_C =
 
 ifndef V
 define COMPILE
     @$(MKDIR) -p $(dir $@)
     @$(ECHO) [$(call ShowProgress,$<)] $(1) $<
-    @$($(1)) $($(1)FLAGS) $($(1)_DEPFLAGS) -c $< -o $@
+    @$($(1)) $($(1)FLAGS) $($(1)_DEPFLAGS) $($(1)_C) $< -o $@
 endef
 else
 define COMPILE
     @$(MKDIR) -p $(dir $@)
     @$(ECHO) [$(call ShowProgress,$<)] \
-    $($(1)) $($(1)FLAGS) $($(1)_DEPFLAGS) -c $< -o $@
-    @$($(1)) $($(1)FLAGS) $($(1)_DEPFLAGS) -c $< -o $@
+    $($(1)) $($(1)FLAGS) $($(1)_DEPFLAGS) $($(1)_C) $< -o $@
+    @$($(1)) $($(1)FLAGS) $($(1)_DEPFLAGS) $($(1)_C) $< -o $@
 endef
 endif
 
 COMPILE_C = $(call COMPILE,CC)
 COMPILE_CXX = $(call COMPILE,CXX)
+COMPILE_ASM = $(call COMPILE,ASM)
 
-ifeq ($(IS_GCC_ASM),1)
-CompileA := $(ASM) $(CFLAGS) $(ASFLAGS) -c
-else
-CompileA := $(ASM) $(ASFLAGS)
-endif
-
-CompileC 	:= $(CC) $(PCH_FLAGS) $(CFLAGS) $(CC_DEPFLAGS)
-CompileCXX	:= $(CXX) $(PCH_X_FLAGS) $(CXXFLAGS) $(CXX_DEPFLAGS)
+# ifeq ($(IS_GCC_ASM),1)
+# CompileASM := $(ASM) $(CFLAGS) $(ASMFLAGS) -c $< -o $@
+# else
+# CompileASM := $(ASM) $(ASMFLAGS) -c $< -o $@
+# endif
 
 PRIMARY_OUTPUTS :=
 
@@ -383,41 +410,41 @@ clean:
 rebuild: clean all
 
 $(BINARYDIR)/$(basename $(TARGETNAME)).bin: $(BINARYDIR)/$(TARGETNAME)
-	@$(OBJCOPY) -O binary $< $(subst ../,__/, $@)
+	@$(OBJCOPY) -O binary $< $@
 
 $(BINARYDIR)/$(basename $(TARGETNAME)).ihex: $(BINARYDIR)/$(TARGETNAME)
-	@$(OBJCOPY) -O ihex $< $(subst ../,__/, $@)
+	@$(OBJCOPY) -O ihex $< $@
 
 ifeq ($(TARGETTYPE),APP)
 ifneq ($(SHOW_CMD_DETAIL),)
 $(BINARYDIR)/$(TARGETNAME): $(pch_objs) $(all_objs) $(EXTERNAL_LIBS)
-	$(CC) -o $(subst ../,__/, $@) $(LDFLAGS) $(START_GROUP) $(subst ../,__/, $(all_objs)) $(LIBRARY_LDFLAGS) $(END_GROUP)
+	$(CC) -o $@ $(LDFLAGS) $(START_GROUP) $(all_objs) $(LIBRARY_LDFLAGS) $(END_GROUP)
 else
 $(BINARYDIR)/$(TARGETNAME): $(pch_objs) $(all_objs) $(EXTERNAL_LIBS)
-	@$(ECHO) Link App $(subst ../,__/, $@)
-	@$(CC) -o $(subst ../,__/, $@) $(LDFLAGS) $(START_GROUP) $(subst ../,__/, $(all_objs)) $(LIBRARY_LDFLAGS) $(END_GROUP)
+	@$(ECHO) Link App $@
+	@$(CC) -o $@ $(LDFLAGS) $(START_GROUP) $(all_objs) $(LIBRARY_LDFLAGS) $(END_GROUP)
 endif
 endif
 
 ifeq ($(TARGETTYPE),SHARED)
 ifneq ($(SHOW_CMD_DETAIL),)
 $(BINARYDIR)/$(TARGETNAME): $(pch_objs) $(all_objs) $(EXTERNAL_LIBS)
-	$(CC) -shared -o $(subst ../,__/, $@) $(LDFLAGS) $(START_GROUP) $(subst ../,__/, $(all_objs)) $(LIBRARY_LDFLAGS) $(END_GROUP)
+	$(CC) -shared -o $@ $(LDFLAGS) $(START_GROUP) $(all_objs) $(LIBRARY_LDFLAGS) $(END_GROUP)
 else
 $(BINARYDIR)/$(TARGETNAME): $(pch_objs) $(all_objs) $(EXTERNAL_LIBS)
-	@$(ECHO) Link Share lib $(subst ../,__/, $@)
-	@$(CC) -shared -o $(subst ../,__/, $@) $(LDFLAGS) $(START_GROUP) $(subst ../,__/, $(all_objs)) $(LIBRARY_LDFLAGS) $(END_GROUP)
+	@$(ECHO) Link Share lib $@
+	@$(CC) -shared -o $@ $(LDFLAGS) $(START_GROUP) $(all_objs) $(LIBRARY_LDFLAGS) $(END_GROUP)
 endif
 endif
 
 ifeq ($(TARGETTYPE),STATIC)
 ifneq ($(SHOW_CMD_DETAIL),)
 $(BINARYDIR)/$(TARGETNAME): $(pch_objs) $(all_objs)
-	$(AR) -r $(subst ../,__/, $@) $(subst ../,__/, $^)
+	$(AR) -r $@ $^
 else
 $(BINARYDIR)/$(TARGETNAME): $(pch_objs) $(all_objs)
-	@$(ECHO) Link Static lib $(subst ../,__/, $@)
-	@$(AR) -r $(subst ../,__/, $@) $(subst ../,__/, $^)
+	@$(ECHO) Link Static lib $@
+	@$(AR) -r $@ $^
 endif
 endif
 
@@ -446,21 +473,21 @@ $(BINARYDIR)/%.c++.o : %.c++ $(PCH_X_FILE)
 	$(COMPILE_CXX)
 
 #Asm的.S文件生成规则
-$(BINARYDIR)/%.o : %.S
-	$(call CompileSrc,$@,$<,$(CompileA))
+$(BINARYDIR)/%.S.o : %.S
+	$(CompileASM)
 
 #Asm的.s文件生成规则
-$(BINARYDIR)/%.o : %.s
-	$(call CompileSrc,$@,$<,$(CompileA))
+$(BINARYDIR)/%.s.o : %.s
+	$(CompileASM)
 
 #Asm的.asm文件生成规则
-$(BINARYDIR)/%.o : %.asm
-	$(call CompileSrc,$@,$<,$(CompileA))
+$(BINARYDIR)/%.asm.o : %.asm
+	$(COMPILE_ASM)
 
 ifneq ($(PCH_H),)
 #C预编译头文件的生成规则
 $(PCH_FILE) : $(PCH_H)
-	@$(MKDIR) -p $(subst ../,__/, $(dir $@))
+	@$(MKDIR) -p $(dir $@)
 	@$(ECHO) [$(call ShowProgress,$(basename $@))] Precompiled C header $<
 	@$(CC) $(CFLAGS) -x c-header $^ -o $@
 endif
@@ -468,7 +495,7 @@ endif
 ifneq ($(PCH_X_H),)
 #C++预编译头文件的生成规则
 $(PCH_X_FILE) : $(PCH_X_H)
-	@$(MKDIR) -p $(subst ../,__/, $(dir $@))
+	@$(MKDIR) -p $(dir $@)
 	@$(ECHO) [$(call ShowProgress,$(basename $@))] Precompiled C++ header $<
 	@$(CXX) $(CXXFLAGS) -x c++-header $^ -o $@
 endif
@@ -479,7 +506,7 @@ endif
 
 help:
 	@$(ECHO) "C/C++ general Makefile V1.4"
-	@$(ECHO) "Copyright(C) 2017~2025  E_Mail:witton@163.com by Witton Bell"
+	@$(ECHO) "Copyright(C) 2017 ~ 2025 E_Mail:witton@163.com by Witton Bell"
 	@$(ECHO) "Usage:make [Target]"
 	@$(ECHO) "Target:"
 	@$(ECHO) "     all          compile and link to target directory(debug or release)"
