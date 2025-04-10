@@ -143,7 +143,7 @@ endif
 
 #根据平台定义相应的宏
 ifneq ($(findstring $(UNAME), Windows, Cygwin, MSYS, MINGW),)
-PREPROCESSOR_MACROS += WIN32 WIN64
+PREPROCESSOR_MACROS += WIN32 _WIN32 WIN64 _WIN64
 else ifeq ($(UNAME), Linux)
 PREPROCESSOR_MACROS += LINUX
 IS_LINUX_PROJECT := 1
