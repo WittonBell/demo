@@ -31,11 +31,12 @@
     {
       "type": "lldb",
       "request": "launch",
-      "name": "Debug",
+      "name": "lldb",
       "program": "${workspaceFolder}/build/debug/app.exe",
       "args": [],
       "cwd": "${workspaceFolder}",
       "windows": {
+        "expressions": "native",
         "postRunCommands": [
           "process interrupt",
           "p (int) SetConsoleOutputCP(65001)",
