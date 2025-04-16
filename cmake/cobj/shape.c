@@ -15,18 +15,18 @@ void shapeDtor(Shape* p) {
 
 
 typedef struct {
-	Rect; // ����̳�ͷ�ļ��й�����Rect����
-	// ���涨��˽�б���
+	Rect; // 这里继承头文件中公开的Rect定义
+	// 下面定义私有变量
 	int w, h;
 }realRect;
 
-// ����������
+// 计算矩形面积
 static int RectArea(realRect* s) {
 	printf("Rect GetArea\n");
 	return s->w * s->h;
 }
 
-// ���ε���������
+// 矩形的析构函数
 static void RectRelease(realRect* s) {
 	if (s) {
 		printf("Rect Dtor:%s\n", s->name);
@@ -35,22 +35,22 @@ static void RectRelease(realRect* s) {
 	}
 }
 
-// ���ε��麯����
-// �麯����ֻ��Ψһ��һ�ݣ��������ܹ����˶���ʵ����
-// ÿ��ʵ����ֻ��һ��ָ���麯������ָ�룬��Լ���ڴ�ռ�
+// 矩形的虚函数表
+// 虚函数表只有唯一的一份，这样不管构建了多少实例，
+// 每个实例都只有一个指向虚函数表的指针，节约了内存空间
 static const vtShape vtRect = {
 	.GetArea = (ShapeGetArea)RectArea,
 	.Dtor = (ShapeDtor)RectRelease,
 };
 
 Rect* newRect(int w, int h) {
-	// ��realRect��С�����ڴ�
+	// 以realRect大小分配内存
 	realRect* p = calloc(1, sizeof(realRect));
 	if (NULL == p)
 		return NULL;
-	// ���û���Ĺ��캯��
+	// 调用基类的构造函数
 	shapeCtor((Shape*)p, "Rect");
-	// �����麯����
+	// 设置虚函数表
 	p->vtb = &vtRect;
 	p->h = h;
 	p->w = w;
@@ -61,18 +61,18 @@ Rect* newRect(int w, int h) {
 
 
 typedef struct {
-	Circle; // ����̳�ͷ�ļ��й�����Circle����
-	// ���涨��˽�б���
+	Circle; // 这里继承头文件中公开的Circle定义
+	// 下面定义私有变量
 	int r;
 }realCircle;
 
-// ����Բ�����
+// 计算圆形面积
 static int CircleArea(realCircle* s) {
 	printf("Circle GetArea\n");
 	return (int)(3.14 * s->r * s->r);
 }
 
-// Բ�ε���������
+// 圆形的析构函数
 static void CircleRelease(realCircle* s) {
 	if (s) {
 		printf("Circle Dtor:%s\n", s->name);
@@ -81,9 +81,9 @@ static void CircleRelease(realCircle* s) {
 	}
 }
 
-// Բ�ε��麯����
-// �麯����ֻ��Ψһ��һ�ݣ��������ܹ����˶���ʵ����
-// ÿ��ʵ����ֻ��һ��ָ���麯������ָ�룬��Լ���ڴ�ռ�
+// 圆形的虚函数表
+// 虚函数表只有唯一的一份，这样不管构建了多少实例，
+// 每个实例都只有一个指向虚函数表的指针，节约了内存空间
 static const vtShape vtCircle = {
 	.GetArea = (ShapeGetArea)CircleArea,
 	.Dtor = (ShapeDtor)CircleRelease,

@@ -1,9 +1,19 @@
+#ifdef _WIN32
+#include <Windows.h>
+#endif
 #include "shape.h"
+#include <stdio.h>
 
 void testCC();
+void asmFoo();
 
 int main(){
+#ifdef _WIN32
+	SetConsoleOutputCP(65001);
+#endif
+	printf("测试\n");
 	testCC();
+	asmFoo();
 	printf("\n\n");
 	Rect* r = newRect(10, 20);
 	Circle* c = newCircle(10);

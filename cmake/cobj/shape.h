@@ -4,7 +4,7 @@ typedef struct _Shape Shape;
 typedef int (*ShapeGetArea)(Shape*);
 typedef void (*ShapeDtor)(Shape*);
 
-// ¶¨ÒåShapeµÄĞéº¯Êı£¬ÒÔÊµÏÖ¶àÌ¬
+// å®šä¹‰Shapeçš„è™šå‡½æ•°ï¼Œä»¥å®ç°å¤šæ€
 typedef struct {
 	ShapeGetArea GetArea;
 	ShapeDtor Dtor;
@@ -18,24 +18,23 @@ typedef enum {
 }Color;
 
 struct _Shape {
-	const vtShape* vtb; // Ö¸ÏòĞéº¯Êı±í
+	const vtShape* vtb; // æŒ‡å‘è™šå‡½æ•°è¡¨
 	char* name;
 	Color color;
 };
 
-// Shape µÄ¹¹Ôìº¯Êı
+// Shape çš„æ„é€ å‡½æ•°
 void shapeCtor(Shape* shape, const char* name);
-// Shape µÄÎö¹¹º¯Êı
+// Shape çš„ææ„å‡½æ•°
 void shapeDtor(Shape* shape);
 
 typedef struct {
-	Shape; // ¼Ì³ĞShape
+	Shape; // ç»§æ‰¿Shape
 }Rect;
 
 typedef struct {
-	Shape; // ¼Ì³ĞShape
+	Shape; // ç»§æ‰¿Shape
 }Circle;
 
 Rect* newRect(int w, int h);
 Circle* newCircle(int r);
-
