@@ -1,9 +1,11 @@
+#include <io.h>
 #include <mupdf/fitz.h>
 #include <mupdf/fitz/glyph-cache.h>
 #include <mupdf/pdf.h>
 #include <mupdf/pdf/object.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <direct.h>
 #ifdef _WIN32
 #include <windows.h>
 #endif
@@ -26,6 +28,7 @@ int main(int argc, char **argv) {
 #ifdef _WIN32
   SetConsoleOutputCP(65001);
 #endif
+  const char *p = _getcwd(nullptr, 0);
   fz_context *ctx = fz_new_context(nullptr, nullptr, FZ_STORE_UNLIMITED);
   if (!ctx) {
     printf("cannot create mupdf context\n");
@@ -41,7 +44,9 @@ int main(int argc, char **argv) {
   }
 
   pdf_document *doc = nullptr;
-  fz_try(ctx) { doc = pdf_open_document(ctx, argv[1]); }
+  fz_try(ctx) {
+    doc = pdf_open_document(ctx, argv[1]);
+  }
   fz_catch(ctx) {
     fz_report_error(ctx);
     printf("cannot open document\n");

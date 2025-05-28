@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?> 
+<AutoVisualizer xmlns="http://schemas.microsoft.com/vstudio/debugger/natvis/2010">
+  <Type Name="pdf_obj">
+    <!--整数-->
+    <DisplayString Condition="(kind=='i')">
+      {((pdf_obj_num*)this)->u.i}
+    </DisplayString>
+    <!--浮点数-->
+    <DisplayString Condition="(kind=='f')">
+      {((pdf_obj_num*)this)->u.f}
+    </DisplayString>
+    
+    <!--如果是字符串，且text不为空，则使用text按UTF8编码显示-->
+    <DisplayString Condition="(kind=='s')">
+      {{ text = {((pdf_obj_string*)this)->text,s8}, buf = {((pdf_obj_string*)this)->buf,s8} }}
+    </DisplayString>
+    
+    <DisplayString Condition="(kind=='n')">
+      {((pdf_obj_name*)this)->n,s8}
+    </DisplayString>
+    <!--this > ((pdf_obj*)(intptr_t)PDF_ENUM_FALSE) && this < ((pdf_obj*)(intptr_t)PDF_ENUM_LIMIT)-->
+    <DisplayString Condition="this &gt; ((pdf_obj*)(intptr_t)PDF_ENUM_FALSE) &amp;&amp; this &lt; ((pdf_obj*)(intptr_t)PDF_ENUM_LIMIT)">
+      {PDF_NAME_LIST[(intptr_t)this]}
+    </DisplayString>
+
+    <DisplayString Condition="(kind=='r')">
+      {{ num = {((pdf_obj_ref*)this)->num}, gen = {((pdf_obj_ref*)this)->gen} }}
+    </DisplayString>
+    
+    <Expand>
+      <Item Name="[cap]" Condition="(kind=='a')">((pdf_obj_array*)this)->cap</Item>
+      <Item Name="[len]" Condition="(kind=='a')">((pdf_obj_array*)this)->len</Item>
+      <ArrayItems Condition="(kind=='a')">
+        <Size>((pdf_obj_array*)this)->len</Size>
+        <ValuePointer>((pdf_obj_array*)this)->items, na</ValuePointer>
+      </ArrayItems>
+
+      <Item Name="[cap]" Condition="(kind=='d')">((pdf_obj_dict*)this)->cap</Item>
+      <Item Name="[len]" Condition="(kind=='d')">((pdf_obj_dict*)this)->len</Item>
+      <ArrayItems Condition="(kind=='d')">
+        <Size>((pdf_obj_dict*)this)->len</Size>
+        <ValuePointer>((pdf_obj_dict*)this)->items, na</ValuePointer>
+      </ArrayItems>
+
+      <Item Name="string" Condition="(kind=='s')">(pdf_obj_string*)this</Item>
+    </Expand>
+  </Type>
+  <Type Name="keyval">
+    <DisplayString>{{ {k,na},{v,na} }} </DisplayString>
+  </Type>
+  <Type Name="fz_buffer">
+    <DisplayString>{data,[len]s8}</DisplayString>
+    <Expand>
+      <Item Name="[cap]">cap</Item>
+      <Item Name="[len]">len</Item>
+      <Item Name="text">data,[len]s8</Item>
+    </Expand>
+  </Type>
+</AutoVisualizer>

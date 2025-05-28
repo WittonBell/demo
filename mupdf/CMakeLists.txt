@@ -19,3 +19,6 @@ set(CMAKE_C_STANDARD 23)
 
 add_executable(print_text print_text.c)
 add_executable(replace_builtin replace_builtin.c)
+#add_executable(replace replace.c)
+#add_executable(outline outline.c)
+add_executable(t t.cc)
