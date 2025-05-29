@@ -18,7 +18,7 @@
     {
       "type": "lldb",
       "request": "launch",
-      "name": "lldb",
+      "name": "(lldb) 启动",
       "program": "${workspaceFolder}/build/t.exe",
       "args": [],
       "cwd": "${workspaceFolder}"
@@ -49,7 +49,7 @@
         },
         {
           "description": "读取GDB脚本",
-          "text": "source ${workspaceFolder}/gdbscripts/printer.py",
+          "text": "source ${workspaceFolder}/gdbscripts/mupdf_printer.py",
           "ignoreFailures": true
         }
       ]
