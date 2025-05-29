@@ -1,6 +1,5 @@
 import gdb
 
-# -------- Utility to call MuPDF C APIs from GDB --------
 pdf_ctx = None
 
 def get_mupdf_version_from_symbol():
@@ -22,16 +21,16 @@ def call_mupdf_api(func_name, val, retType, *args):
             float: "(float)",
             str: "(const char*)",  # for functions returning const char*
             object: "(pdf_obj *)",  # for pdf_obj pointers
-        }.get(retType, "")
+        }.get(retType, "(void)")
         global pdf_ctx
         if pdf_ctx is None:
             ver = get_mupdf_version_from_symbol()
             pdf_ctx = gdb.parse_and_eval(f"(fz_context*)fz_new_context_imp(0,0,0,\"{ver}\")")
         if args.__len__() > 0:
             args_str = ', '.join([str(arg) for arg in args])
-            expr = f"{cast}{func_name}({pdf_ctx},(pdf_obj *){addr}u, {args_str})"
+            expr = f"{cast}{func_name}({pdf_ctx},{addr}, {args_str})"
         else:
-            expr = f"{cast}{func_name}({pdf_ctx},(pdf_obj *){addr}u)"
+            expr = f"{cast}{func_name}({pdf_ctx},{addr})"
         result = gdb.parse_and_eval(expr)
         # 使用全局 pdf_ctx 则此处不需要释放
         #gdb.parse_and_eval(f"(void)fz_drop_context({ctx})")  # Clean up context
@@ -40,7 +39,7 @@ def call_mupdf_api(func_name, val, retType, *args):
         elif retType == float:
             return float(result.cast(gdb.lookup_type("float")))
         elif retType == str:
-            return str(f"{result.string()}")
+            return result.string()
         else:
             return result
     except Exception as e:
@@ -80,82 +79,81 @@ def detect_pdf_obj_kind(val):
         return "error"
 
 class PDFObjIntPrinter:
-    def __init__(self, val):
+    def __init__(self, val, ref):
         self.val = val
+        self.ref = ref
 
     def to_string(self):
-        return f"{call_pdf_api('pdf_to_int', self.val, int)}"
-
-    def display_hint(self):
-        return "int"
-class PDFObjRealPrinter:
-    def __init__(self, val):
-        self.val = val
-
-    def to_string(self):
-        return f"{call_pdf_api('pdf_to_real', self.val, float)}"
-
-    def display_hint(self):
-        return "float"
-class PDFObjStringPrinter:
-    def __init__(self, val):
-        self.val = val
-
-    def to_string(self):
-        return f"{call_pdf_api('pdf_to_text_string', self.val, str)}"
-
-    def display_hint(self):
-        return "string"
-class PDFObjNamePrinter:
-    def __init__(self, val):
-        self.val = val
-
-    def to_string(self):
-        return f"{call_pdf_api('pdf_to_name', self.val, str)}"
-
-    def display_hint(self):
-        return "string"
-class PDFObjBoolPrinter:
-    def __init__(self, val):
-        self.val = val
-
-    def to_string(self):
-        ret = call_pdf_api("pdf_to_bool", self.val, int)
-        return f"{'true' if ret else 'false'}"
+        return f"{self.ref}{call_pdf_api('pdf_to_int', self.val, int)}"
 
     def display_hint(self):
         return None
-class PDFObjStreamPrinter:
-    def __init__(self, val):
+
+class PDFObjRealPrinter:
+    def __init__(self, val, ref):
         self.val = val
+        self.ref = ref
 
     def to_string(self):
-        stream_len = call_pdf_api("pdf_stream_len", self.val, int)
-        if stream_len > 0:
-            return f"<PDF stream[{stream_len}]>"
-        else:
-            return "<PDF empty stream>"
+        return f"{self.ref}{call_pdf_api('pdf_to_real', self.val, float)}"
+
+    def display_hint(self):
+        return None
+
+class PDFObjStringPrinter:
+    def __init__(self, val, ref):
+        self.val = val
+        self.ref = ref
+
+    def to_string(self):
+        return f"{self.ref}{call_pdf_api('pdf_to_text_string', self.val, str)}"
 
     def display_hint(self):
         return "string"
-class PDFObjNullPrinter:
-    def __init__(self, val):
+
+class PDFObjNamePrinter:
+    def __init__(self, val, ref):
         self.val = val
+        self.ref = ref
 
     def to_string(self):
-        return "<null>"
+        return f"{self.ref}{call_pdf_api('pdf_to_name', self.val, str)}"
 
     def display_hint(self):
-        return "null"
-# -*- coding: utf-8 -*-
-# -------- Array Pretty Printer --------
-class PDFArrayPrinter:
-    def __init__(self, val):
+        return "string"
+
+class PDFObjBoolPrinter:
+    def __init__(self, val, ref):
         self.val = val
+        self.ref = ref
+
+    def to_string(self):
+        ret = call_pdf_api("pdf_to_bool", self.val, int)
+        return f"{self.ref}{'true' if ret else 'false'}"
+
+    def display_hint(self):
+        return None
+
+class PDFObjNullPrinter:
+    def __init__(self, val, ref):
+        self.val = val
+        self.ref = ref
+
+    def to_string(self):
+        return f"{self.ref}<null>"
+
+    def display_hint(self):
+        return None
+
+class PDFArrayPrinter:
+    def __init__(self, val, ref):
+        self.val = val
+        self.ref = ref
         self.count = call_pdf_api("pdf_array_len", self.val)
 
     def to_string(self):
-        return f"<PDF array[{self.count}]>"
+        return f"{self.ref}<PDF array[{self.count}]>"
+
     class _interator:
         def __init__(self, val, count):
             self.val = val
@@ -182,14 +180,14 @@ class PDFArrayPrinter:
     def display_hint(self):
         return "array"
 
-# -------- Dictionary Pretty Printer --------
 class PDFDictPrinter:
-    def __init__(self, val):
+    def __init__(self, val, ref):
         self.val = val
+        self.ref = ref
 
     def to_string(self):
         count = call_pdf_api("pdf_dict_len", self.val)
-        return f"<PDF dict[{count}]>"
+        return f"{self.ref}<PDF dict[{count}]>"
 
     def children(self):
         count = call_pdf_api("pdf_dict_len", self.val)
@@ -207,106 +205,33 @@ class PDFDictPrinter:
     def display_hint(self):
         return "map"
 
-# -------- Main Pretty Printer for pdf_obj --------
-# class PDFObjPrinter:
-#     def __init__(self, val):
-#         self.val = val
-#         val_type = val.type.strip_typedefs()
-#         self.is_ptr = val_type.code == gdb.TYPE_CODE_PTR
-#         self.obj = val.dereference() if self.is_ptr else val
-
-#     def to_string(self):
-#         v = self.val
-#         try:
-#             if self.is_ptr and not self.val:
-#                 return "<null>"
-
-#             ref = ""
-#             if call_pdf_api("pdf_is_indirect", v):
-#                 ref_num = call_pdf_api("pdf_to_num", v, int)
-#                 ref = f"<PDF indirect ref {ref_num}> => "
-
-#             if call_pdf_api("pdf_is_int", v):
-#                 return f"{ref}{call_pdf_api('pdf_to_int', v, int)}"
-#             elif call_pdf_api("pdf_is_real", v):
-#                 return f"{ref}{call_pdf_api('pdf_to_real', v, float)}"
-#             elif call_pdf_api("pdf_is_string", v):
-#                 ret = call_pdf_api("pdf_to_text_string", v, str)
-#                 return f"{ref}{ret}"
-#             elif call_pdf_api("pdf_is_name", v):
-#                 ret = call_pdf_api("pdf_to_name", v, str)
-#                 return f"{ref}\"{ret}\""
-#             elif call_pdf_api("pdf_is_array", v):
-#                 return f"{ref}{PDFArrayPrinter(v).to_string()}"
-#             elif call_pdf_api("pdf_is_dict", v):
-#                 return f"{ref}{PDFDictPrinter(v).to_string()}"
-#             elif call_pdf_api("pdf_is_bool", v):
-#                 ret = call_pdf_api("pdf_to_bool", v, int)
-#                 return f"{ref}true" if ret else f"{ref}false"
-#             elif call_pdf_api("pdf_is_stream", v):
-#                 stream_len = call_pdf_api("pdf_stream_len", v, int)
-#                 if stream_len > 0:
-#                     return f"<PDF stream[{stream_len}]>"
-#                 else:
-#                     return "<PDF empty stream>"
-#             elif call_pdf_api("pdf_is_null", v):
-#                 return "<PDF_NULL>"
-#             else:
-#                 return "<PDF unknown>"
-#         except Exception as e:
-#             return f"<invalid pdf_obj: {e}>"
-
-#     def children(self):
-#         v = self.val
-#         try:
-#             if call_pdf_api("pdf_is_array", v):
-#                 return PDFArrayPrinter(v).children()
-#             elif call_pdf_api("pdf_is_dict", v):
-#                 return PDFDictPrinter(v).children()
-#         except:
-#             pass
-#         # 如果不是数组或字典，则返回空
-#         return []
-
-#     def display_hint(self):
-#         v = self.val
-#         try:
-#             if call_pdf_api("pdf_is_array", v):
-#                 return "array"
-#             if call_pdf_api("pdf_is_dict", v):
-#                 return "map"
-#             if call_pdf_api("pdf_is_string", v):
-#                 return "string"
-#         except:
-#             pass
-#         return None
-
-# -------- Pretty Printer Entry Point --------
 def pdf_obj_lookup(val):
     try:
-        t = val.type.strip_typedefs()
+        t = val.type
         if t.code == gdb.TYPE_CODE_PTR:
-            t = t.target().strip_typedefs()
-        if t.name == "pdf_obj" or t.name == "struct pdf_obj":
+            t = t.target()
+        if t.name == "pdf_obj":
+            ref = ""
+            if call_pdf_api("pdf_is_indirect", val):
+                ref_num = call_pdf_api("pdf_to_num", val, int)
+                ref = f"<PDF indirect ref {ref_num}> => "
             kind = detect_pdf_obj_kind(val)
             if kind == "int":
-                return PDFObjIntPrinter(val)
+                return PDFObjIntPrinter(val, ref)
             elif kind == "real":
-                return PDFObjRealPrinter(val)
+                return PDFObjRealPrinter(val, ref)
             elif kind == "string":
-                return PDFObjStringPrinter(val)
+                return PDFObjStringPrinter(val, ref)
             elif kind == "name":
-                return PDFObjNamePrinter(val)
+                return PDFObjNamePrinter(val, ref)
             elif kind == "array":
-                return PDFArrayPrinter(val)
+                return PDFArrayPrinter(val, ref)
             elif kind == "dict":
-                return PDFDictPrinter(val)
+                return PDFDictPrinter(val, ref)
             elif kind == "bool":
-                return PDFObjBoolPrinter(val)
-            elif kind == "stream":
-                return PDFObjStreamPrinter(val)
+                return PDFObjBoolPrinter(val, ref)
             elif kind == "null":
-                return PDFObjNullPrinter(val)
+                return PDFObjNullPrinter(val, ref)
             else:
                 print(f"<unknown pdf_obj kind: {kind}>")
                 return None

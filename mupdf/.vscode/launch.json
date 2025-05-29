@@ -18,7 +18,7 @@
     {
       "type": "lldb",
       "request": "launch",
-      "name": "Launch",
+      "name": "lldb",
       "program": "${workspaceFolder}/build/t.exe",
       "args": [],
       "cwd": "${workspaceFolder}"
