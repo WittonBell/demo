@@ -25,7 +25,7 @@
       "initCommands": [
         "command script import ${workspaceFolder}/lldbscripts/mupdf_printer.py",
         "settings set target.exec-search-paths ${workspaceFolder}/build"
-      ],
+      ]
     },
     {
       "name": "(gdb) 启动",

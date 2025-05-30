@@ -8,15 +8,13 @@ const char* mupdf_version = FZ_VERSION;
 int main(int argc, char* argv[]) {
   pdf_obj* nil = nullptr;
   fz_context* ctx = fz_new_context(nullptr, nullptr, FZ_STORE_UNLIMITED);
-#ifdef _MSC_VER
-  pdf_document* doc = pdf_open_document(ctx, "../../../t.pdf");
-#else
   pdf_document* doc = pdf_open_document(ctx, "t.pdf");
-#endif
   pdf_obj* Int = pdf_new_int(ctx, 10);
   pdf_obj* Real = pdf_new_real(ctx, 3.14F);
   pdf_obj* Str = pdf_new_text_string(ctx, "hello");
   pdf_obj* Name = pdf_new_name(ctx, "name");
+  pdf_obj* True = PDF_TRUE;
+  pdf_obj* False = PDF_FALSE;
 
   pdf_obj* ar = pdf_new_array(ctx, doc, 10);
   pdf_array_put(ctx, ar, 0, Int);
@@ -43,5 +41,6 @@ int main(int argc, char* argv[]) {
   pdf_drop_obj(ctx, dict);
   pdf_drop_obj(ctx, ref);
 
+  pdf_drop_document(ctx, doc);
   fz_drop_context(ctx);
 }

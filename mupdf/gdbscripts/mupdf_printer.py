@@ -54,6 +54,8 @@ def call_pdf_api_1(func_name, val, args, rettype=int):
 
 def detect_pdf_obj_kind(val):
     try:
+        if call_pdf_api("pdf_is_null", val):
+            return "null"
         if call_pdf_api("pdf_is_int", val):
             return "int"
         elif call_pdf_api("pdf_is_real", val):
@@ -70,8 +72,6 @@ def detect_pdf_obj_kind(val):
             return "bool"
         elif call_pdf_api("pdf_is_stream", val):
             return "stream"
-        elif call_pdf_api("pdf_is_null", val):
-            return "null"
         else:
             return "unknown"
     except Exception as e:
@@ -106,7 +106,9 @@ class PDFObjStringPrinter:
         self.ref = ref
 
     def to_string(self):
-        return f"{self.ref}{call_pdf_api('pdf_to_text_string', self.val, str)}"
+        if self.ref is not None:
+            return f"{self.ref}{call_pdf_api('pdf_to_text_string', self.val, str)}"
+        return f"{call_pdf_api('pdf_to_text_string', self.val, str)}"
 
     def display_hint(self):
         return "string"
@@ -145,6 +147,28 @@ class PDFObjNullPrinter:
     def display_hint(self):
         return None
 
+def getItemValue(item):
+    kind = detect_pdf_obj_kind(item)
+    if kind == "int":
+        return call_pdf_api('pdf_to_int', item, int)
+    if kind == "real":
+        return call_pdf_api('pdf_to_real', item, float)
+    if kind == "bool":
+        ret = call_pdf_api("pdf_to_bool", item, int)
+        v = 'true' if ret else 'false'
+        return gdb.Value(v).cast(gdb.lookup_type('char').pointer())
+    if kind == "string":
+        return item
+    if kind == "name":
+        return item
+    if kind == "array":
+        return item
+    if kind == "dict":
+        return item
+    if kind == "null":
+        return gdb.Value("<null>").cast(gdb.lookup_type('char').pointer())
+    return item
+
 class PDFArrayPrinter:
     def __init__(self, val, ref):
         self.val = val
@@ -170,7 +194,7 @@ class PDFArrayPrinter:
             self.index += 1
             try:
                 item = call_pdf_api_1("pdf_array_get", self.val, i, object)
-                return f"{i}", item
+                return f"{i}", getItemValue(item)
             except Exception:
                 raise StopIteration
 
@@ -197,7 +221,7 @@ class PDFDictPrinter:
                 val = call_pdf_api_1("pdf_dict_get_val",self.val, i, object)
                 # 下面两个yield语句中，元组的第一个元素不能相同
                 yield (f"{i}:k", key) # 返回键值对的键
-                yield (f"{i}:v", val) # 返回键值对的值
+                yield (f"{i}:v", getItemValue(val)) # 返回键值对的值
             except Exception as e:
                 print(f"PDFDictPrinter: error getting key {i} {e}")
                 yield f"<key:{i}>", "<invalid>"
