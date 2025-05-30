@@ -21,7 +21,11 @@
       "name": "(lldb) 启动",
       "program": "${workspaceFolder}/build/t.exe",
       "args": [],
-      "cwd": "${workspaceFolder}"
+      "cwd": "${workspaceFolder}",
+      "initCommands": [
+        "command script import ${workspaceFolder}/lldbscripts/mupdf_printer.py",
+        "settings set target.exec-search-paths ${workspaceFolder}/build"
+      ],
     },
     {
       "name": "(gdb) 启动",

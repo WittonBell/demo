@@ -14,7 +14,7 @@ int main(int argc, char* argv[]) {
   pdf_document* doc = pdf_open_document(ctx, "t.pdf");
 #endif
   pdf_obj* Int = pdf_new_int(ctx, 10);
-  pdf_obj* Real = pdf_new_real(ctx, 3.14);
+  pdf_obj* Real = pdf_new_real(ctx, 3.14F);
   pdf_obj* Str = pdf_new_text_string(ctx, "hello");
   pdf_obj* Name = pdf_new_name(ctx, "name");
 

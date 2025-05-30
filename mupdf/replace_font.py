@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+import binascii
+
 import fitz_old as fitz
 import sys
 
@@ -11,7 +13,7 @@ dict_new_font['SimHei'] = 'c:/windows/fonts/simhei.ttf'
 # 楷体及楷体GB2312替换为系统的楷体
 dict_new_font['SimKai'] = 'c:/windows/fonts/simkai.ttf'
 
-def replace_page(page):
+def replace_page(page: fitz.Page):
     span_list = []
     info = page.get_text('dict')
     for block in info['blocks']:
@@ -40,9 +42,60 @@ def replace_page(page):
         page.insert_text(target['origin'], text, fontsize=target['size'], fontname=font_name,
                          fontfile=dict_new_font[font_name])
 
+def decode(s):
+    try:
+        return s.encode('latin1').decode('gbk')
+    except:
+        return s.encode('utf-16').decode("utf-16")
+
+def show(doc, field):
+    txt = doc.metadata[field]
+    print(field, " : ", decode(txt))
+
+def string_to_ascii(s):
+    l = []
+    for c in s:
+        cc = ord(c)
+        x = bin(cc)
+        l.append(x)
+    return l
+
+def show_outline(outline):
+    while outline:
+        t = outline.title
+        t1 = t.encode('utf-16be').decode('utf-16le')
+        print(t1)
+        if outline.down is not None:
+            show_outline(outline.down)
+        outline = outline.next
 
 def replace_font(doc_path, save_path):
     doc = fitz.open(doc_path)
+    title = doc.metadata['title']
+    author = doc.metadata['author']
+    subject = doc.metadata['subject']
+    keywords = doc.metadata['keywords']
+    creator = doc.metadata['creator']
+    producer = doc.metadata['producer']
+
+    print("")
+    show(doc, 'title')
+    show(doc, 'author')
+    show(doc, 'subject')
+    show(doc, 'keywords')
+    show(doc, 'creator')
+    show(doc, 'producer')
+    show_outline(doc.outline)
+    for page in doc:
+        lst = page.get_contents()
+        for xref in lst:
+            stream = doc.xref_stream(xref)
+            if stream is not None:
+                pass
+
+    doc.close()
+    return
+
     n = len(doc)
     for page in doc:
         replace_page(page)
