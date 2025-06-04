@@ -49,11 +49,12 @@ def call_pdf_api(func_name, val, rettype=int):
 def call_pdf_api_1(func_name, val, arg, rettype=int):
     return call_mupdf_api(func_name, val, rettype, arg)
 
+# 检测除间隔引用外的数据类型
 def detect_pdf_obj_kind(val):
     try:
         if call_pdf_api("pdf_is_null", val):
             return "null"
-        if call_pdf_api("pdf_is_int", val):
+        elif call_pdf_api("pdf_is_int", val):
             return "int"
         elif call_pdf_api("pdf_is_real", val):
             return "real"
@@ -67,49 +68,48 @@ def detect_pdf_obj_kind(val):
             return "array"
         elif call_pdf_api("pdf_is_dict", val):
             return "dict"
-        else:
-            return "unknown"
+        return "unknown"
     except Exception as e:
         print(f"<error detecting pdf_obj kind: {e}>")
         return "<error>"
 
-def PDFObjAPISummary(valobj : lldb.value, internal_dict):
+def PDFObjAPISummary(val : lldb.value, internal_dict):
     try:
-        addr = valobj.GetValueAsAddress()
+        addr = val.GetValueAsAddress()
         if not addr:
             return "<null>"
 
         ref = ""
-        if call_pdf_api("pdf_is_indirect", valobj):
-            num = call_pdf_api(f"pdf_to_num", valobj)
-            gen = call_pdf_api(f"pdf_to_gen", valobj)
-            ref = f"(ref) {num} {gen} => "
+        if call_pdf_api("pdf_is_indirect", val):
+            num = call_pdf_api(f"pdf_to_num", val)
+            #gen = call_pdf_api(f"pdf_to_gen", valobj)
+            ref = f"<Ref {num}> => "
 
-        kind = detect_pdf_obj_kind(valobj)
+        kind = detect_pdf_obj_kind(val)
         if kind == "null":
             return f"{ref}<null>"
         elif kind == "int":
-            val = call_pdf_api("pdf_to_int", valobj)
+            val = call_pdf_api("pdf_to_int", val)
             return f"{ref}{val}"
         elif kind == "real":
-            val = call_pdf_api(f"pdf_to_real", valobj, float)
+            val = call_pdf_api(f"pdf_to_real", val, float)
             return f"{ref}{val}"
         elif kind == "bool":
-            val = call_pdf_api(f"pdf_to_bool", valobj)
+            val = call_pdf_api(f"pdf_to_bool", val)
             return f"{ref}{'true' if val else 'false'}"
         elif kind == "string":
-            val = call_pdf_api("pdf_to_text_string", valobj, str)
+            val = call_pdf_api("pdf_to_text_string", val, str)
             return f'{ref}{val}'
         elif kind == "name":
-            val = call_pdf_api("pdf_to_name", valobj, str)
-            return f'{ref}{val}'
+            val = call_pdf_api("pdf_to_name", val, str)
+            return f'{ref}/{val.strip('"')}'
         elif kind == "array":
-            length = call_pdf_api("pdf_array_len", valobj)
-            return f"{ref}[{length} elements]"
+            length = call_pdf_api("pdf_array_len", val)
+            return f"{ref}[size]={length}"
         elif kind == "dict":
-            length = call_pdf_api(f"pdf_dict_len", valobj)
-            return f"{ref}{{{length} pairs}}"
-        return f"{addr}"
+            length = call_pdf_api(f"pdf_dict_len", val)
+            return f"{ref}[pairs]={length}"
+        return f"{ref}{addr}"
 
     except Exception as e:
         return f"<error: {e}>"
@@ -132,16 +132,6 @@ class PDFObjAPIPrinter:
             return int(length) if length else 0
         return 0
 
-    def get_child_index(self, name):
-        try:
-            if self.kind == "array":
-                return int(name.strip("[]"))
-            elif self.kind == "dict":
-                # 字典子节点名称格式为[key]
-                return int(name.split("]")[0].strip("["))
-        except:
-            return -1
-
     def get_child_at_index(self, index):
         try:
             if index < 0 or index >= self.num_children():
@@ -156,10 +146,10 @@ class PDFObjAPIPrinter:
             elif self.kind == "dict":
                 key = call_pdf_api_1("pdf_dict_get_key", self.valobj, index, object)
                 val = call_pdf_api_1("pdf_dict_get_val", self.valobj, index, object)
-                key_str = call_pdf_api("pdf_to_name", key, str)
+                key_str = call_pdf_api("pdf_to_name", key, str).strip('"')
                 addr = val.GetValueAsAddress()
                 expr = f"(pdf_obj *){addr}"
-                return self.valobj.CreateValueFromExpression(f"[{key_str}]", expr)
+                return self.valobj.CreateValueFromExpression(f"[/{key_str}]", expr)
         except Exception as e:
             print(f"Error in get_child_at_index: {e}")
         return None
