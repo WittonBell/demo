@@ -5,6 +5,12 @@
   "version": "0.2.0",
   "configurations": [
     {
+      "name": "Python 调试程序: 使用进程 ID 附加",
+      "type": "debugpy",
+      "request": "attach",
+      "processId": "${command:pickProcess}"
+    },
+    {
       "name": "(Windows) 启动",
       "type": "cppvsdbg",
       "request": "launch",

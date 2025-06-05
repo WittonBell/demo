@@ -1,7 +1,6 @@
-from tkinter import E
 import gdb
 
-pdf_ctx = None
+pdf_ctx : gdb.Value | None = None
 
 # 获取mupdf的版本号
 def get_mupdf_version_from_symbol():
@@ -42,7 +41,7 @@ def call_mupdf_api(func_name : str, val : gdb.Value, retType : type, *args):
             # 没参数的情况
             expr = f"{cast}{func_name}({pdf_ctx},{addr})"
         # 执行表达式
-        result = gdb.parse_and_eval(expr)
+        result : gdb.Value = gdb.parse_and_eval(expr)
         # 使用全局 pdf_ctx 则此处不需要释放
         #gdb.parse_and_eval(f"(void)fz_drop_context({ctx})")  # Clean up context
         # 根据返回值进行相应的转换
@@ -59,7 +58,7 @@ def call_mupdf_api(func_name : str, val : gdb.Value, retType : type, *args):
         print(f"<error calling {func_name}: {e}>")
         return f"<error calling {func_name}: {e}>"
 
-def call_pdf_api(func_name : str, val : gdb.Value, rettype=int):
+def call_pdf_api(func_name : str, val : gdb.Value, rettype : type =int):
     return call_mupdf_api(func_name, val, rettype)
 
 def call_pdf_api_1(func_name : str, val : gdb.Value, args):
@@ -105,7 +104,7 @@ class PDFObjIntPrinter:
         return None
 
 # 浮点类型
-class PDFObjRealPrinter:
+class PDFObjRealPrinter(gdb.ValuePrinter):
     def __init__(self, val : gdb.Value, ref : str):
         self.val = val
         self.ref = ref
@@ -117,7 +116,7 @@ class PDFObjRealPrinter:
         return None
 
 # 字符串类型
-class PDFObjStringPrinter:
+class PDFObjStringPrinter(gdb.ValuePrinter):
     def __init__(self, val : gdb.Value, ref : str):
         self.val = val
         self.ref = ref
@@ -131,7 +130,7 @@ class PDFObjStringPrinter:
         return "string"
 
 # 名字类型
-class PDFObjNamePrinter:
+class PDFObjNamePrinter(gdb.ValuePrinter):
     def __init__(self, val : gdb.Value, ref : str):
         self.val = val
         self.ref = ref
@@ -142,7 +141,7 @@ class PDFObjNamePrinter:
     def display_hint(self):
         return None
 
-class PDFObjBoolPrinter:
+class PDFObjBoolPrinter(gdb.ValuePrinter):
     def __init__(self, val : gdb.Value, ref : str):
         self.val = val
         self.ref = ref
@@ -154,7 +153,7 @@ class PDFObjBoolPrinter:
     def display_hint(self):
         return None
 
-class PDFObjNullPrinter:
+class PDFObjNullPrinter(gdb.ValuePrinter):
     def __init__(self, val : gdb.Value, ref : str):
         self.val = val
         self.ref = ref
@@ -193,7 +192,7 @@ def getItemValue(item : gdb.Value):
         print(f"getItemValue {e}")
 
 # 数组类型
-class PDFArrayPrinter:
+class PDFArrayPrinter(gdb.ValuePrinter):
     def __init__(self, val, ref):
         self.val = val
         self.ref = ref
@@ -229,7 +228,7 @@ class PDFArrayPrinter:
         return "array"
 
 # 字典类型
-class PDFDictPrinter:
+class PDFDictPrinter(gdb.ValuePrinter):
     def __init__(self, val, ref):
         self.val = val
         self.ref = ref

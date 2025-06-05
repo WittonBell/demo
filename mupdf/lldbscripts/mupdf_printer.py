@@ -1,15 +1,15 @@
 import lldb
 
-pdf_ctx = None
+pdf_ctx : int | None = None
 
-def get_mupdf_version_from_symbol(target):
+def get_mupdf_version_from_symbol(target : lldb.SBTarget):
     try:
         version = target.EvaluateExpression('(const char*)mupdf_version')
         return version.GetSummary()
     except Exception as e:
         return f"<symbol not found: {e}>"
 
-def call_mupdf_api(func_name, val, retType, *args):
+def call_mupdf_api(func_name : str, val : lldb.SBValue, retType : type, *args):
     try:
         target = val.GetTarget()
         addr = val.GetValueAsAddress()  # 使用GetValueAsAddress获取指针值
@@ -23,14 +23,14 @@ def call_mupdf_api(func_name, val, retType, *args):
         if pdf_ctx is None:
             ver = get_mupdf_version_from_symbol(target)
             print(f"[LLDB] MuPDF version: {ver}")
-            pdf_ctx = target.EvaluateExpression(f"(fz_context*)fz_new_context_imp(0,0,0,{ver})")
-            pdf_ctx = pdf_ctx.GetValueAsAddress()  # 保存为整数地址
+            ctx : lldb.SBValue = target.EvaluateExpression(f"(fz_context*)fz_new_context_imp(0,0,0,{ver})")
+            pdf_ctx = ctx.GetValueAsAddress()  # 保存为整数地址
         if args:
             args_str = ', '.join([str(arg) for arg in args])
             expr = f"{cast}{func_name}((fz_context*){pdf_ctx},{addr}, {args_str})"
         else:
             expr = f"{cast}{func_name}((fz_context*){pdf_ctx},(pdf_obj*){addr})"
-        result = target.EvaluateExpression(expr)
+        result : lldb.SBValue = target.EvaluateExpression(expr)
         if retType == int:
             return int(result.GetValue())
         elif retType == float:
@@ -43,14 +43,14 @@ def call_mupdf_api(func_name, val, retType, *args):
         print(f"<error calling {func_name}: {e}>")
         return f"<error calling {func_name}: {e}>"
 
-def call_pdf_api(func_name, val, rettype=int):
+def call_pdf_api(func_name : str, val : lldb.SBValue, rettype=int):
     return call_mupdf_api(func_name, val, rettype)
 
-def call_pdf_api_1(func_name, val, arg, rettype=int):
+def call_pdf_api_1(func_name : str, val : lldb.SBValue, arg, rettype=int):
     return call_mupdf_api(func_name, val, rettype, arg)
 
 # 检测除间隔引用外的数据类型
-def detect_pdf_obj_kind(val):
+def detect_pdf_obj_kind(val : lldb.SBValue):
     try:
         if call_pdf_api("pdf_is_null", val):
             return "null"
@@ -73,7 +73,7 @@ def detect_pdf_obj_kind(val):
         print(f"<error detecting pdf_obj kind: {e}>")
         return "<error>"
 
-def PDFObjAPISummary(val : lldb.value, internal_dict):
+def PDFObjAPISummary(val : lldb.SBValue, internal_dict : dict):
     try:
         addr = val.GetValueAsAddress()
         if not addr:
@@ -89,20 +89,17 @@ def PDFObjAPISummary(val : lldb.value, internal_dict):
         if kind == "null":
             return f"{ref}<null>"
         elif kind == "int":
-            val = call_pdf_api("pdf_to_int", val)
-            return f"{ref}{val}"
+            return f"{ref}{call_pdf_api("pdf_to_int", val)}"
         elif kind == "real":
-            val = call_pdf_api(f"pdf_to_real", val, float)
-            return f"{ref}{val}"
+            return f"{ref}{call_pdf_api(f"pdf_to_real", val, float)}"
         elif kind == "bool":
-            val = call_pdf_api(f"pdf_to_bool", val)
-            return f"{ref}{'true' if val else 'false'}"
+            v = call_pdf_api(f"pdf_to_bool", val)
+            return f"{ref}{'true' if v else 'false'}"
         elif kind == "string":
-            val = call_pdf_api("pdf_to_text_string", val, str)
-            return f'{ref}{val}'
+            return f'{ref}{call_pdf_api("pdf_to_text_string", val, str)}'
         elif kind == "name":
-            val = call_pdf_api("pdf_to_name", val, str)
-            return f'{ref}/{val.strip('"')}'
+            v = call_pdf_api("pdf_to_name", val, str)
+            return f'{ref}/{v.strip('"')}'
         elif kind == "array":
             length = call_pdf_api("pdf_array_len", val)
             return f"{ref}[size]={length}"
@@ -113,11 +110,11 @@ def PDFObjAPISummary(val : lldb.value, internal_dict):
 
     except Exception as e:
         return f"<error: {e}>"
-
 class PDFObjAPIPrinter:
-    def __init__(self, valobj, internal_dict):
-        self.valobj = valobj
-        self.kind = detect_pdf_obj_kind(self.valobj)
+    def __init__(self, val : lldb.SBValue, internal_dict : dict):
+        self.val = val
+        self.kind = detect_pdf_obj_kind(val)
+        self.size = self.num_children()
 
     def has_children(self):
         # 只在array/dict类型时允许展开
@@ -125,36 +122,42 @@ class PDFObjAPIPrinter:
 
     def num_children(self):
         if self.kind == "array":
-            length = call_pdf_api(f"pdf_array_len", self.valobj)
+            length = call_pdf_api(f"pdf_array_len", self.val)
             return int(length) if length else 0
         elif self.kind == "dict":
-            length = call_pdf_api(f"pdf_dict_len", self.valobj)
+            length = call_pdf_api(f"pdf_dict_len", self.val)
             return int(length) if length else 0
         return 0
 
     def get_child_at_index(self, index):
         try:
-            if index < 0 or index >= self.num_children():
+            if index < 0 or index >= self.size:
                 return None
 
             if self.kind == "array":
-                v = call_pdf_api_1(f"pdf_array_get", self.valobj, index, object)
+                v = call_pdf_api_1(f"pdf_array_get", self.val, index, object)
+                # 根据索引取到pdf_obj对象了，需要获取其地址
                 addr = v.GetValueAsAddress()
+                # 再构造一个表达式，将这个地址强制转为pdf_obj的指针
                 expr = f"(pdf_obj *){addr}"
-                return self.valobj.CreateValueFromExpression(f"[{index}]", expr)
+                # 最后根据这个表达式创建一个新的值，LLDB会自动重新根据规则显示这个值
+                return self.val.CreateValueFromExpression(f"[{index}]", expr)
 
             elif self.kind == "dict":
-                key = call_pdf_api_1("pdf_dict_get_key", self.valobj, index, object)
-                val = call_pdf_api_1("pdf_dict_get_val", self.valobj, index, object)
+                key = call_pdf_api_1("pdf_dict_get_key", self.val, index, object)
+                val = call_pdf_api_1("pdf_dict_get_val", self.val, index, object)
+                # 将pdf_obj中字典的Key一定是一个name，取name的值
                 key_str = call_pdf_api("pdf_to_name", key, str).strip('"')
+                # 将字典的value取地址，构造一个新的表达式
                 addr = val.GetValueAsAddress()
                 expr = f"(pdf_obj *){addr}"
-                return self.valobj.CreateValueFromExpression(f"[/{key_str}]", expr)
+                # 最后根据这个表达式创建一个新的值，LLDB会自动重新根据规则显示这个值
+                return self.val.CreateValueFromExpression(f"[/{key_str}]", expr)
         except Exception as e:
             print(f"Error in get_child_at_index: {e}")
         return None
 
-def __lldb_init_module(debugger, internal_dict):
+def __lldb_init_module(debugger : lldb.SBDebugger, internal_dict : dict):
     debugger.HandleCommand(r'type summary add -x ".*pdf_obj.*\*" --python-function mupdf_printer.PDFObjAPISummary')
     debugger.HandleCommand(r'type synthetic add -x ".*pdf_obj.*\*" --python-class mupdf_printer.PDFObjAPIPrinter')
-    print("[+] MuPDF pdf_obj summary provider (via API) loaded.")
+    print("MuPDF pdf_obj summary and synthetic provider (via API) loaded.")
