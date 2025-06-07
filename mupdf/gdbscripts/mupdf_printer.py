@@ -1,6 +1,7 @@
 import gdb
 
 pdf_ctx : gdb.Value | None = None
+has_bool : bool = False
 
 # 获取mupdf的版本号
 def get_mupdf_version_from_symbol():
@@ -9,6 +10,14 @@ def get_mupdf_version_from_symbol():
         return version.string()
     except gdb.error as e:
         return f"<symbol not found: {e}>"
+    
+def detect_bool():
+    try:
+       ret =  gdb.parse_and_eval(f"(_Bool)1")
+       global has_bool
+       has_bool = True
+    except gdb.error as e:
+        pass
 
 # 调用mupdf的API
 def call_mupdf_api(func_name : str, val : gdb.Value, retType : type, *args):
@@ -21,6 +30,7 @@ def call_mupdf_api(func_name : str, val : gdb.Value, retType : type, *args):
             # 如果不是指针，则需要取地址，再转成int
             addr = int(val.address)
         cast = {
+            bool: "(_Bool)",
             int: "(int)",
             float: "(float)",
             str: "(const char*)",
@@ -30,6 +40,7 @@ def call_mupdf_api(func_name : str, val : gdb.Value, retType : type, *args):
         if pdf_ctx is None:
             # 获取mupdf的版本号
             ver = get_mupdf_version_from_symbol()
+            detect_bool()
             print(f"[GDB] MuPDF version: {ver}")
             # 创建一个fz_context，并保存在Python变量中
             pdf_ctx = gdb.parse_and_eval(f"(fz_context*)fz_new_context_imp(0,0,0,\"{ver}\")")
@@ -147,6 +158,9 @@ class PDFObjBoolPrinter(gdb.ValuePrinter):
         self.ref = ref
 
     def to_string(self):
+        global has_bool
+        if has_bool:
+            return f"{self.ref}{call_pdf_api("pdf_to_bool", self.val, bool)}"
         ret = call_pdf_api("pdf_to_bool", self.val, int)
         return f"{self.ref}{'true' if ret else 'false'}"
 
@@ -176,6 +190,9 @@ def getItemValue(item : gdb.Value):
         if kind == "real":
             return call_pdf_api('pdf_to_real', item, float)
         if kind == "bool":
+            global has_bool
+            if has_bool:
+                return call_pdf_api('pdf_to_bool', item, bool)
             return item
         if kind == "string":
             return item

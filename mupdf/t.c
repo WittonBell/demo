@@ -6,9 +6,21 @@
 const char* mupdf_version = FZ_VERSION;
 
 int main(int argc, char* argv[]) {
+  const char* p = "hello";
+  bool b = true;
   pdf_obj* nil = nullptr;
   fz_context* ctx = fz_new_context(nullptr, nullptr, FZ_STORE_UNLIMITED);
-  pdf_document* doc = pdf_open_document(ctx, "t.pdf");
+  pdf_document* doc = nullptr;
+  fz_try(ctx) {
+    doc = pdf_open_document(ctx, "t.pdf");
+  }
+  fz_catch(ctx) {
+    fz_report_error(ctx);
+    printf("cannot open document\n");
+    fz_drop_context(ctx);
+    return EXIT_FAILURE;
+  }
+
   pdf_obj* Int = pdf_new_int(ctx, 10);
   pdf_obj* Real = pdf_new_real(ctx, 3.14F);
   pdf_obj* Str = pdf_new_text_string(ctx, "hello");
