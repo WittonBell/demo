@@ -158,6 +158,6 @@ class PDFObjAPIPrinter:
         return None
 
 def __lldb_init_module(debugger : lldb.SBDebugger, internal_dict : dict):
-    debugger.HandleCommand(r'type summary add -x ".*pdf_obj.*\*" --python-function mupdf_printer.PDFObjAPISummary')
-    debugger.HandleCommand(r'type synthetic add -x ".*pdf_obj.*\*" --python-class mupdf_printer.PDFObjAPIPrinter')
+    debugger.HandleCommand(r'type summary add -x "^pdf_obj.*\*" --python-function mupdf_printer.PDFObjAPISummary')
+    debugger.HandleCommand(r'type synthetic add -x "^pdf_obj.*\*" --python-class mupdf_printer.PDFObjAPIPrinter')
     print("MuPDF pdf_obj summary and synthetic provider (via API) loaded.")
