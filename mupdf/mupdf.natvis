@@ -10,49 +10,83 @@
       {((pdf_obj_num*)this)->u.f}
     </DisplayString>
     
-    <!--如果是字符串，且text不为空，则使用text按UTF8编码显示-->
+    <!--字符串-->
     <DisplayString Condition="(kind=='s')">
+      <!--以UTF8格式显示字符串-->
       {{ text = {((pdf_obj_string*)this)->text,s8}, buf = {((pdf_obj_string*)this)->buf,s8} }}
     </DisplayString>
-    
-    <DisplayString Condition="(kind=='n')">
-      {((pdf_obj_name*)this)->n,s8}
-    </DisplayString>
-    <!--this > ((pdf_obj*)(intptr_t)PDF_ENUM_FALSE) && this < ((pdf_obj*)(intptr_t)PDF_ENUM_LIMIT)-->
-    <DisplayString Condition="this &gt; ((pdf_obj*)(intptr_t)PDF_ENUM_FALSE) &amp;&amp; this &lt; ((pdf_obj*)(intptr_t)PDF_ENUM_LIMIT)">
-      {PDF_NAME_LIST[(intptr_t)this]}
+
+    <!--布尔的false-->
+    <!--this == ((pdf_obj*)(intptr_t)PDF_ENUM_FALSE))-->
+    <DisplayString Condition="this == ((pdf_obj*)(intptr_t)PDF_ENUM_FALSE)">
+      false
     </DisplayString>
 
+    <!--布尔的true-->
+    <!--this == ((pdf_obj*)(intptr_t)PDF_ENUM_TRUE))-->
+    <DisplayString Condition="this == ((pdf_obj*)(intptr_t)PDF_ENUM_TRUE)">
+      true
+    </DisplayString>
+
+    <!--名字-->
+    <!--this > ((pdf_obj*)(intptr_t)PDF_ENUM_FALSE) && this < ((pdf_obj*)(intptr_t)PDF_ENUM_LIMIT)-->
+    <DisplayString Condition="this &gt; ((pdf_obj*)(intptr_t)PDF_ENUM_FALSE) &amp;&amp; this &lt; ((pdf_obj*)(intptr_t)PDF_ENUM_LIMIT)">
+      <!--以UTF8格式显示不带引号的字符串-->
+      /{PDF_NAME_LIST[(intptr_t)this],s8b}
+    </DisplayString>
+
+    <!--名字-->
+    <DisplayString Condition="(kind=='n')">
+      <!--以UTF8格式显示不带引号的字符串-->
+      /{((pdf_obj_name*)this)->n,s8b}
+    </DisplayString>
+
+    <!--间接引用-->
     <DisplayString Condition="(kind=='r')">
       {{ num = {((pdf_obj_ref*)this)->num}, gen = {((pdf_obj_ref*)this)->gen} }}
     </DisplayString>
     
     <Expand>
+      <!--数组-->
       <Item Name="[cap]" Condition="(kind=='a')">((pdf_obj_array*)this)->cap</Item>
       <Item Name="[len]" Condition="(kind=='a')">((pdf_obj_array*)this)->len</Item>
       <ArrayItems Condition="(kind=='a')">
         <Size>((pdf_obj_array*)this)->len</Size>
+        <!--数组子项不显示地址-->
         <ValuePointer>((pdf_obj_array*)this)->items, na</ValuePointer>
       </ArrayItems>
 
+      <!--字典-->
       <Item Name="[cap]" Condition="(kind=='d')">((pdf_obj_dict*)this)->cap</Item>
       <Item Name="[len]" Condition="(kind=='d')">((pdf_obj_dict*)this)->len</Item>
       <ArrayItems Condition="(kind=='d')">
         <Size>((pdf_obj_dict*)this)->len</Size>
+        <!--字典子项不显示地址-->
         <ValuePointer>((pdf_obj_dict*)this)->items, na</ValuePointer>
       </ArrayItems>
 
+      <!--字符串展开显示-->
       <Item Name="string" Condition="(kind=='s')">(pdf_obj_string*)this</Item>
+      <!--间接引用展开显示，调用自定义函数ref2obj，调试器会报`此表达式有副作用，将不予计算`，需要手动刷新计算-->
+      <Item Name="value" Condition="(kind=='r')"> ref2obj(this) </Item>
     </Expand>
   </Type>
+  <!--keyval结构-->
   <Type Name="keyval">
+    <!--使用na参数不显示地址-->
     <DisplayString>{{ {k,na},{v,na} }} </DisplayString>
+    <Expand>
+      <Item Name="Key"> k </Item>
+      <Item Name="Value"> v </Item>
+    </Expand>
   </Type>
+  <!--fz_buffer结构-->
   <Type Name="fz_buffer">
     <DisplayString>{data,[len]s8}</DisplayString>
     <Expand>
       <Item Name="[cap]">cap</Item>
       <Item Name="[len]">len</Item>
+      <!--按指定长度显示文本-->
       <Item Name="text">data,[len]s8</Item>
     </Expand>
   </Type>

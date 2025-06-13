@@ -1,15 +1,44 @@
 #include <mupdf/fitz.h>
 #include <mupdf/pdf.h>
+#include <stdbool.h>
+
+#ifndef __cplusplus
+#if __STDC_VERSION__ < 202311L
+#ifdef nullptr
+#undef nullptr
+#endif
+
+#define nullptr NULL
+#endif
+#endif
 
 // 为GDB调试器使用，不能设置为static
 // 这将使得GDB可以在运行时获取mupdf的版本信息
 const char* mupdf_version = FZ_VERSION;
+
+#if defined(_MSC_VER) && defined(_DEBUG)
+// VC调试器需要ref2obj辅助函数来展开查看间接引用的值
+fz_context* mupdf_ctx = nullptr;
+
+pdf_obj* ref2obj(pdf_obj* obj) {
+  if (mupdf_ctx == nullptr) {
+    return obj;
+  }
+  if (pdf_is_indirect(mupdf_ctx, obj)) {
+    return pdf_resolve_indirect_chain(mupdf_ctx, obj);
+  }
+  return obj;
+}
+#endif
 
 int main(int argc, char* argv[]) {
   const char* p = "hello";
   bool b = true;
   pdf_obj* nil = nullptr;
   fz_context* ctx = fz_new_context(nullptr, nullptr, FZ_STORE_UNLIMITED);
+#if defined(_MSC_VER) && defined(_DEBUG)
+  mupdf_ctx = ctx;
+#endif
   pdf_document* doc = nullptr;
   fz_try(ctx) {
     doc = pdf_open_document(ctx, "t.pdf");
