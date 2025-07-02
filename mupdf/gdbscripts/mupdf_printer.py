@@ -75,7 +75,7 @@ def call_pdf_api(func_name : str, val : gdb.Value, rettype : type =int):
 def call_pdf_api_1(func_name : str, val : gdb.Value, args):
     return call_mupdf_api(func_name, val, object, args)
 
-# 检测除了间隔引用外的所有类型
+# 检测除了间接引用外的所有类型
 def detect_pdf_obj_kind(val : gdb.Value):
     try:
         if call_pdf_api("pdf_is_null", val):
@@ -160,7 +160,7 @@ class PDFObjBoolPrinter(gdb.ValuePrinter):
     def to_string(self):
         global has_bool
         if has_bool:
-            return f"{self.ref}{call_pdf_api("pdf_to_bool", self.val, bool)}"
+            return f"{self.ref}{call_pdf_api('pdf_to_bool', self.val, bool)}"
         ret = call_pdf_api("pdf_to_bool", self.val, int)
         return f"{self.ref}{'true' if ret else 'false'}"
 
