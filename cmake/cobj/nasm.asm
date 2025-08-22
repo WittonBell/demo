@@ -9,23 +9,23 @@ global asmFoo
 
 %ifdef WIN32
 asmFoo:
-	push	rbp
+    push	rbp
     mov		rbp, rsp
-	sub		rsp, 0x20
+    sub		rsp, 0x20
     lea		rax, [rel msg]
-	mov		rcx, rax
+    mov		rcx, rax
     call	printf
-	add		rsp, 0x20
-	pop		rbp
+    add		rsp, 0x20
+    pop		rbp
     ret
 %else
 asmFoo:
     push	rbp
     mov		rbp, rsp
-	sub		rsp, 0x20
+    sub		rsp, 0x20
     lea 	rdi, [rel msg]
     call	printf wrt ..plt ;也可以使用 call 	[rel printf wrt ..got]
-	add		rsp, 0x20
+    add		rsp, 0x20
     pop		rbp
     ret
 %endif
