@@ -62,6 +62,8 @@ endif()
 
 endif()
 
+set(CMAKE_C_STANDARD 11)
+
 include_directories(../inc)
 
 add_library(${PROJECT_NAME} ${NASM_SRC} src/co.c src/ctx.c)

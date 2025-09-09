@@ -2,7 +2,7 @@
 #define _CO_CTX_H_INCLUDE_
 
 typedef struct co_ctx co_ctx;
-typedef void (*fnCoMain)(void* arg);
+typedef void (*fnCoMain)();
 
 typedef void* REG;
 
@@ -31,7 +31,7 @@ struct co_ctx {
 co_ctx* new_ctx();
 void free_ctx(co_ctx*);
 
-void make_ctx(co_ctx* ctx, fnCoMain fn, void* arg);
+void make_ctx(co_ctx* ctx, fnCoMain fn/*, void* arg*/);
 
 void swap_ctx(co_ctx* from, co_ctx* to) asm("swap_ctx");
 

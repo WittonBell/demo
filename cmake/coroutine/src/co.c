@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <threads.h>
 
 #ifdef USE_NATIVE_CO
 #if __APPLE__ && __MACH__
@@ -30,6 +31,8 @@ typedef co_ctx* coctx;
 #endif
 
 #include "co.h"
+
+static thread_local co_env* env = NULL;
 
 enum {
   STACK_SIZE = (1024 * 1024)  // 协程默认共享栈大小
@@ -66,17 +69,16 @@ struct co_env {
   co_id_t running_id;  // 当前运行的协程ID
   coroutine_p* co;     // 协程数组，大小为cap
 #if !(defined(USE_NATIVE_CO) && defined(_WIN32))
-  size_t stack_size;   // 共享栈大小
-  char stack[0];       // 共享栈内存
+  size_t stack_size;  // 共享栈大小
+  char stack[0];      // 共享栈内存
 #endif
 };
 
 // 协程入口函数
-static void co_main(void* ptr) {
-  co_env* env = (co_env*)ptr;
+static void _co_main() {
   co_id_t id = env->running_id;  // 运行的ID也是环境管理器中的协程索引
   coroutine* co = env->co[id];   // 根据索引取协程
-  co->func(env, co->arg);        // 调用协程函数
+  co->func(co->arg);             // 调用协程函数
   co->status = CO_STOPED;        // 设置为停止状态，等待回收资源
   --env->nco;                    // 当前协程数量减1
   env->running_id = -1;          // 设置为-1，表示当前没有协程在执行
@@ -89,10 +91,7 @@ static void co_main(void* ptr) {
 #endif
 }
 
-static coroutine* _co_new(co_env* env,
-                          co_func func,
-                          void* arg,
-                          size_t stack_size) {
+static coroutine* _co_new(co_func func, void* arg, size_t stack_size) {
   coroutine* co = (coroutine*)calloc(1, sizeof(*co));
   if (co == NULL) {
     return NULL;
@@ -106,7 +105,7 @@ static coroutine* _co_new(co_env* env,
 #ifdef USE_NATIVE_CO
 #ifdef _WIN32
   // 创建纤程
-  co->ctx = CreateFiber(stack_size, (LPFIBER_START_ROUTINE)co_main, env);
+  co->ctx = CreateFiber(stack_size, (LPFIBER_START_ROUTINE)_co_main, env);
 #else
   co->stack = NULL;
 #endif
@@ -160,16 +159,18 @@ static inline int _align(uint16_t cap) {
 
 #define ALIGN(x, a) ((x + a - 1) & (~(a - 1)))
 
-co_env* co_open(uint16_t cap, size_t share_stack_size) {
+bool co_open(uint16_t cap, size_t share_stack_size) {
   if (share_stack_size == 0) {
     share_stack_size = STACK_SIZE;
   }
   share_stack_size = ALIGN(share_stack_size, 8);
-  co_env* env = (co_env*)calloc(1, sizeof(co_env) + share_stack_size);
+  env = (co_env*)calloc(1, sizeof(co_env) + share_stack_size);
   if (env == NULL) {
-    return NULL;
+    return false;
   }
+#if !defined(USE_NATIVE_CO) || defined(USE_NATIVE_CO) && !defined(_WIN32) 
   env->stack_size = share_stack_size;
+#endif
   env->nco = 0;
   if (cap == 0) {
     assert(_IsValidCap(DEFAULT_COROUTINE));
@@ -181,7 +182,7 @@ co_env* co_open(uint16_t cap, size_t share_stack_size) {
   env->co = (coroutine**)calloc(env->cap, sizeof(coroutine*));
   if (env->co == NULL) {
     free(env);
-    return NULL;
+    return false;
   }
 #ifdef USE_NATIVE_CO
 #ifdef _WIN32
@@ -189,7 +190,7 @@ co_env* co_open(uint16_t cap, size_t share_stack_size) {
   env->main = ConvertThreadToFiber(env);
   if (env->main == NULL) {
     free(env);
-    return NULL;
+    return false;
   }
 #endif
 #else
@@ -197,13 +198,16 @@ co_env* co_open(uint16_t cap, size_t share_stack_size) {
   if (env->main == NULL) {
     free(env->co);
     free(env);
-    return NULL;
+    return false;
   }
 #endif
-  return env;
+  return true;
 }
 
-void co_close(co_env* env) {
+void co_close() {
+  if (env == NULL) {
+    return;
+  }
   // 如果有协程没释放，则释放
   for (int i = 0; i < env->cap; i++) {
     coroutine* co = env->co[i];
@@ -221,11 +225,12 @@ void co_close(co_env* env) {
   free_ctx(env->main);
 #endif
   free(env);
+  env = NULL;
 }
 
-int co_new(co_env* env, co_func func, void* arg, size_t stack_size) {
+int co_new(co_func func, void* arg, size_t stack_size) {
   // 分配协程内存
-  coroutine* co = _co_new(env, func, arg, stack_size);
+  coroutine* co = _co_new(func, arg, stack_size);
   // 如果当前协程数量达到最大容量，则扩容
   if (env->nco >= env->cap) {
     int id = env->cap;
@@ -257,7 +262,7 @@ int co_new(co_env* env, co_func func, void* arg, size_t stack_size) {
   return -1;
 }
 
-bool co_resume(co_env* env, co_id_t id) {
+bool co_resume(co_id_t id) {
   assert(env->running_id == -1);
   assert(id >= 0 && id < env->cap);
   coroutine* co = env->co[id];
@@ -279,13 +284,13 @@ bool co_resume(co_env* env, co_id_t id) {
       co->ctx.uc_stack.ss_sp = env->stack;
       co->ctx.uc_stack.ss_size = env->stack_size;
       co->ctx.uc_link = &env->main;  // 结束后需要返回主函数，否则就会退出程序
-      makecontext(&co->ctx, (void (*)(void))co_main, 1, env);
+      makecontext(&co->ctx, (void (*)(void))_co_main, 0);
       swapcontext(&env->main, &co->ctx);
 #endif
 #else
       co->ctx->ss_sp = env->stack;
       co->ctx->ss_size = env->stack_size;
-      make_ctx(co->ctx, co_main, env);
+      make_ctx(co->ctx, _co_main);
       swap_ctx(env->main, co->ctx);
 #endif
       return true;
@@ -318,7 +323,9 @@ bool co_resume(co_env* env, co_id_t id) {
 
 #if !(defined(USE_NATIVE_CO) && defined(_WIN32))
 // 保存栈数据
-static void _save_stack(coroutine* co, const char* top) {
+static void _save_stack(coroutine* co) {
+  assert((char*)&co > env->stack);
+  const char* top = env->stack + env->stack_size;
   char dummy = 0;
   assert(top - &dummy <= co->env->stack_size);
   if (co->cap < top - &dummy) {
@@ -335,7 +342,7 @@ static void _save_stack(coroutine* co, const char* top) {
 }
 #endif
 
-void co_swap(co_env* env) {
+void co_swap() {
   co_id_t id = env->running_id;
   assert(id >= 0);
   coroutine* co = env->co[id];
@@ -345,17 +352,15 @@ void co_swap(co_env* env) {
 #ifdef _WIN32
   SwitchToFiber(env->main);
 #else
-  assert((char*)&co > env->stack);
-  _save_stack(co, env->stack + env->stack_size);
+  _save_stack(co);
   swapcontext(&co->ctx, &env->main);
 #endif
 #else
-  assert((char*)&co > env->stack);
-  _save_stack(co, env->stack + env->stack_size);
+  _save_stack(co);
   swap_ctx(co->ctx, env->main);
 #endif
 }
 
-co_id_t co_id(co_env* env) {
+co_id_t co_id() {
   return env->running_id;
 }
