@@ -16,7 +16,9 @@ if(CMAKE_BUILD_TYPE MATCHES "Debug")
 set(CMAKE_ASM_NASM_FLAGS "-g")
 endif()
 
-if(Unix32)
+if(MSYS)
+set(CMAKE_ASM_NASM_OBJECT_FORMAT win64)
+elseif(Unix32)
 set(CMAKE_ASM_NASM_OBJECT_FORMAT elf32)
 endif()
 
@@ -28,7 +30,7 @@ add_compile_definitions(
 )
 endif()
 
-if(MSVC OR MINGW)
+if(MSVC OR MINGW OR MSYS)
 
 if(MSVC)
 set(CMAKE_C_FLAGS "/utf-8")

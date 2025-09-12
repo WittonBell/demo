@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <threads.h>
+#include "c11_threads.h"
 
 #ifdef USE_NATIVE_CO
 #if __APPLE__ && __MACH__

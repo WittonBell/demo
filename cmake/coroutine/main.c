@@ -1,15 +1,15 @@
 #include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <threads.h>
+#include "c11_threads.h"
 #include "co.h"
 
 uint64_t thread_id() {
   thrd_t t = thrd_current();
-#ifdef _WIN32
+#ifdef _MSC_VER
   return t._Tid;
 #else
-  return t;
+  return (uint64_t)t;
 #endif
 }
 
