@@ -1,0 +1,10 @@
+{
+	"chat.mcp.gallery.enabled": true,
+	"chat.mcp.serverSampling": {
+		"mcp/.vscode/mcp.json: hello-world": {
+			"allowedModels": [
+				"copilot/auto"
+			]
+		}
+	}
+}

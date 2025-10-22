@@ -1,0 +1,11 @@
+{
+  "servers": {
+    "hello-world": {
+      "command": "python",
+      "env": {
+        "PATH": "G:/msys64/mingw64/bin"
+      },
+      "args": ["simple_mcp.py"]
+    }
+  }
+}
