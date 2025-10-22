@@ -1,19 +1,52 @@
-from mcp.server.fastmcp import FastMCP
+#!/usr/bin/env python3
+import asyncio
+from mcp.server.models import InitializationOptions
+from mcp.server import NotificationOptions, Server
+from mcp.server.stdio import stdio_server
+import mcp.types as types
 
-# 初始化 MCP 服务器，并设置名称和版本
-mcp = FastMCP("Hello World Server")
+# 创建服务器实例
+server = Server("hello-world")
 
-# 使用装饰器定义工具，函数文档字符串会自动作为工具描述
-@mcp.tool()
-def say_hello(name: str = "World") -> str:
-    """一个简单的问候工具，向用户说Hello。
+@server.list_tools()
+async def handle_list_tools() -> list[types.Tool]:
+    return [
+        types.Tool(
+            name="hello_world",
+            description="简单的 Hello World 工具",
+            inputSchema={
+                "type": "object",
+                "properties": {}
+            }
+        )
+    ]
 
-    Args:
-        name: 要问候的对象名称，默认为'World'
-    """
-    return f"你好, {name}! 欢迎使用MCP 1.18.0 服务!"
+@server.call_tool()
+async def handle_call_tool(name: str, arguments: dict) -> list[types.TextContent]:
+    if name == "hello_world":
+        return [
+            types.TextContent(
+                type="text",
+                text="Hello World from MCP Server!"
+            )
+        ]
+    raise ValueError(f"未知工具: {name}")
 
-# 运行服务器
+async def main():
+    # 使用 stdio 传输
+    async with stdio_server() as (read_stream, write_stream):
+        await server.run(
+            read_stream,
+            write_stream,
+            InitializationOptions(
+                server_name="hello-world",
+                server_version="1.0.0",
+                capabilities=server.get_capabilities(
+                    notification_options=NotificationOptions(),
+                    experimental_capabilities={}
+                )
+            )
+        )
+
 if __name__ == "__main__":
-    # 使用 stdio 传输，这是与 MCP 客户端（如 Claude Desktop）通信的标准方式
-    mcp.run(transport="stdio")
+    asyncio.run(main())
