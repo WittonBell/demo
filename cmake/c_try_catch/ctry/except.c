@@ -1,5 +1,6 @@
-#include "except.h"
 #include <signal.h>
+
+#include "except.h"
 #if __linux__
 #include <stdlib.h>
 #include <string.h>
@@ -8,7 +9,7 @@
 #if _MSC_VER
 #include <windows.h>
 
-LONG WINAPI seh_handler(EXCEPTION_POINTERS* e) {
+LONG WINAPI seh_handler(EXCEPTION_POINTERS *e) {
   if (e->ExceptionRecord->ExceptionCode == EXCEPTION_INT_DIVIDE_BY_ZERO) {
     raise(SIGFPE);
     return EXCEPTION_CONTINUE_EXECUTION;
@@ -17,22 +18,24 @@ LONG WINAPI seh_handler(EXCEPTION_POINTERS* e) {
 }
 #endif
 
-jmp_buf __global_jmp_buf__[256] = {};
+jump_buffer __global_jmp_buf__[256] = {};
 unsigned int __global_jmp_buf_depth___ = 0;
 
 static void sig(int s) {
   switch (s) {
-    case SIGSEGV:
-    case SIGFPE:
+  case SIGSEGV:
+  case SIGFPE: {
+    __global_jmp_buf__[--__global_jmp_buf_depth___].result = s;
 #if _WIN32
-      (void)signal(s, sig);
-      longjmp(__global_jmp_buf__[--__global_jmp_buf_depth___], 1);
+    (void)signal(s, sig);
+    longjmp(__global_jmp_buf__[__global_jmp_buf_depth___].buf, s);
 #elif __linux__
-      siglongjmp(__global_jmp_buf__[--__global_jmp_buf_depth___], 1);
+    siglongjmp(__global_jmp_buf__[__global_jmp_buf_depth___].buf, s);
 #endif
-      break;
-    default:
-      break;
+    break;
+  }
+  default:
+    break;
   }
 }
 
@@ -44,9 +47,6 @@ void init_try_catch() {
 #if __linux__
   struct sigaction sa;
   memset(&sa, 0, sizeof(sa));
-  if (sigfillset(&sa.sa_mask)) {
-    abort();
-  }
   sa.sa_handler = sig;
   if (sigaction(SIGFPE, &sa, NULL) == -1) {
     abort();
