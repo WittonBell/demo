@@ -22,6 +22,7 @@ static void foo(void* ud) {
   int start = arg->n;
   uint64_t id = thread_id();
   for (int i = 0; i < 3; i++) {
+    // 在MinGW下使用GDB调试器调试时，下面这句会经常出现段错误。建议使用LLDB调试器。
     printf("[%" PRIu64 "] coroutine %d : %d\n", id, co_id(), start + i);
     co_swap();
   }
@@ -69,15 +70,15 @@ int main() {
 #define N 10
   thrd_t ar_id[N];
   for (int i = 0; i < N; ++i) {
-    thrd_create(&ar_id[i], worker, NULL);
+    (void)thrd_create(&ar_id[i], worker, NULL);
   }
   struct timespec ts;
   ts.tv_sec = 0;
   ts.tv_nsec = 1000;
-  thrd_sleep(&ts, &ts);
+  (void)thrd_sleep(&ts, &ts);
   for (int i = 0; i < N; ++i) {
-    int res;
-    thrd_join(ar_id[i], &res);
+    int res = 0;
+    (void)thrd_join(ar_id[i], &res);
   }
 
   return 0;
