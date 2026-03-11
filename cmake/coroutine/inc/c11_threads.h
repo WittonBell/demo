@@ -69,7 +69,7 @@ static inline int thrd_create(thrd_t* thr, thrd_start_t func, void* arg) {
 }
 
 static inline int thrd_join(thrd_t thr, int* res) {
-  void* thread_result;
+  void* thread_result = NULL;
   int ret = pthread_join(thr, &thread_result);
   if (res != NULL) {
     *res = (int)(intptr_t)thread_result;
@@ -107,7 +107,7 @@ static inline void thrd_yield(void) {
 
 // 互斥锁函数
 static inline int mtx_init(mtx_t* mutex, int type) {
-  pthread_mutexattr_t attr;
+  pthread_mutexattr_t attr = {};
   pthread_mutexattr_init(&attr);
 
   if (type & mtx_recursive) {

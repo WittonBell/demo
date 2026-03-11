@@ -1,0 +1,17 @@
+syntax = "proto3";
+package netmsg;
+
+message EmptyMsg
+{
+}
+
+message PingPong
+{
+	uint32 time = 1;
+}
+
+message ReqLogin
+{
+	string userName = 1;
+	bytes psw = 2;
+}

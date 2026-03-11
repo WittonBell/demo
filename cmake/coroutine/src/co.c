@@ -157,7 +157,7 @@ static inline int _align(uint16_t cap) {
   return n - 1;
 }
 
-#define ALIGN(x, a) ((x + a - 1) & (~(a - 1)))
+#define ALIGN(x, a) (((x) + (a) - 1) & (~((a) - 1)))
 
 bool co_open(uint16_t cap, size_t share_stack_size) {
   if (share_stack_size == 0) {
@@ -168,7 +168,7 @@ bool co_open(uint16_t cap, size_t share_stack_size) {
   if (env == NULL) {
     return false;
   }
-#if !defined(USE_NATIVE_CO) || defined(USE_NATIVE_CO) && !defined(_WIN32) 
+#if !defined(USE_NATIVE_CO) || defined(USE_NATIVE_CO) && !defined(_WIN32)
   env->stack_size = share_stack_size;
 #endif
   env->nco = 0;
@@ -176,7 +176,7 @@ bool co_open(uint16_t cap, size_t share_stack_size) {
     assert(_IsValidCap(DEFAULT_COROUTINE));
     env->cap = DEFAULT_COROUTINE;
   } else {
-    env->cap = (int)_align(cap);
+    env->cap = _align(cap);
   }
   env->running_id = -1;
   env->co = (coroutine**)calloc(env->cap, sizeof(coroutine*));
@@ -196,7 +196,7 @@ bool co_open(uint16_t cap, size_t share_stack_size) {
 #else
   env->main = new_ctx();
   if (env->main == NULL) {
-    free(env->co);
+    free((void*)env->co);
     free(env);
     return false;
   }
@@ -235,7 +235,7 @@ int co_new(co_func func, void* arg, size_t stack_size) {
   if (env->nco >= env->cap) {
     int id = env->cap;
     // 这里新容量使用2的n次方-1的方式对齐，方便后面取索引时，使用位与的方式快速计算
-    int cap = id * 2 + 1;
+    int cap = (id * 2) + 1;
     assert(_IsValidCap(cap));
     void* p = realloc((void*)env->co, (size_t)cap * sizeof(env->co));
     if (p == NULL) {
