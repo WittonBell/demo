@@ -37,6 +37,12 @@ bool co_resume(co_id_t id);
 // @brief 切换本线程正在运行的协程，这里不取名co_yield以免与C++ 20中的关键字重名
 void co_swap();
 
+// @brief 等待本线程指定ID的协程运行结束
+void co_join(co_id_t id);
+
+// @brief 等级本线程的所有协程运行结束
+void co_wait();
+
 // @brief 获取本线程协程环境变量正在运行的协程ID
 // @return 非负数则为当前正在运行的协程ID，否则没有协程正在运行
 co_id_t co_id();

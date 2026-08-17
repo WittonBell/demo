@@ -24,7 +24,7 @@ void make_ctx(co_ctx* ctx, fnCoMain fn/*, void* arg*/) {
   // Win64下的调用约定有影子内存：
   // https://learn.microsoft.com/zh-cn/cpp/build/x64-calling-convention?view=msvc-170#calling-convention-defaults
   // 调用方必须始终分配足够的空间来存储 4 个寄存器参数，即使被调用方不使用这么多参数
-  ctx->rsp = (char*)(sp) - 32;
+  ctx->rsp = sp - 32;
   // Win64 前4个整数/指针参数：RCX, RDX, R8, R9
   //ctx->rcx = arg;
 #elif defined(__x86_64__)
@@ -35,6 +35,6 @@ void make_ctx(co_ctx* ctx, fnCoMain fn/*, void* arg*/) {
 #else
   // 设置栈指针
   //*(void**)sp = arg;
-  ctx->esp = (char*)(sp) - sizeof(void*);
+  ctx->esp = sp - sizeof(void*);
 #endif
 }

@@ -8,17 +8,8 @@
 #endif
 #endif
 
-#if !defined(HAS_THREADS_H) && (defined(__MINGW32__) || defined(__MINGW64__))
-
-#include <errno.h>
-#include <pthread.h>
-#include <sched.h>
-#include <stdint.h>
-#include <time.h>
-
 // 检测编译器是否支持thread_local
-#if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L && \
-    !defined(__STDC_NO_THREADS__)
+#if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L && !defined(__STDC_NO_THREADS__)
 // C11及以上版本，且支持线程
 #define thread_local _Thread_local
 #elif defined(__GNUC__) || defined(__clang__)
@@ -32,6 +23,14 @@
 #warning "thread_local is not supported by this compiler"
 #define thread_local
 #endif
+
+#if !defined(HAS_THREADS_H) && (defined(__MINGW32__) || defined(__MINGW64__))
+
+#include <errno.h>
+#include <pthread.h>
+#include <sched.h>
+#include <stdint.h>
+#include <time.h>
 
 // 定义C11线程类型
 typedef pthread_t thrd_t;

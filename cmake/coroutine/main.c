@@ -4,7 +4,32 @@
 #include "c11_threads.h"
 #include "co.h"
 
-uint64_t thread_id() {
+// 在MinGW中printf函数输出UTF8的汉字会有问题，它内部是一个字节一个字节输出的，需要改为一次性输出
+#if defined(__MINGW32__) || defined(__MINGW64__)
+#include <windows.h>
+#include <stdarg.h>
+
+#define printf __Print
+
+static int __Print(const char* fmt, ...) {
+  va_list va = {};
+  va_start(va, fmt);
+  char buffer[8192];
+  int n = vsnprintf(buffer, sizeof(buffer), fmt, va);
+  if (n < sizeof(buffer))
+    fputs(buffer, stdout);
+  else {
+    char* p = (char*)malloc(n + 1);
+    n = vsnprintf(p, n + 1, fmt, va);
+    fputs(p, stdout);
+    free(p);
+  }
+  va_end(va);
+  return n;
+}
+#endif
+
+static uint64_t thread_id() {
   thrd_t t = thrd_current();
 #ifdef _MSC_VER
   return t._Tid;
@@ -23,7 +48,7 @@ static void foo(void* ud) {
   uint64_t id = thread_id();
   for (int i = 0; i < 3; i++) {
     // 在MinGW下使用GDB调试器调试时，下面这句会经常出现段错误。建议使用LLDB调试器。
-    printf("[%" PRIu64 "] coroutine %d : %d\n", id, co_id(), start + i);
+    printf("thread[%" PRIu64 "] coroutine %d value %d\n", id, co_id(), start + i);
     co_swap();
   }
 }
@@ -45,13 +70,7 @@ static void test() {
   }
   uint64_t id = thread_id();
   printf("[%" PRIu64 "] main start\n", id);
-  bool isOK = false;
-  do {
-    isOK = false;
-    for (int i = 0; i < NUM; ++i) {
-      isOK = co_resume(ar_id[i]) || isOK;
-    }
-  } while (isOK);
+  co_wait();
   printf("[%" PRIu64 "] main end\n", id);
   free(arg);
   free(ar_id);
@@ -67,6 +86,9 @@ static int worker(void* arg) {
 }
 
 int main() {
+#ifdef _WIN32
+  SetConsoleOutputCP(65001);
+#endif
 #define N 10
   thrd_t ar_id[N];
   for (int i = 0; i < N; ++i) {
@@ -80,6 +102,5 @@ int main() {
     int res = 0;
     (void)thrd_join(ar_id[i], &res);
   }
-
   return 0;
 }

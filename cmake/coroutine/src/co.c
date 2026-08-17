@@ -145,7 +145,7 @@ static void _co_delete(coroutine* co) {
 }
 
 static inline bool _IsValidCap(size_t n) {
-  return ((n + 1) & n) == 0 && n > 0;
+  return (bool)(((n + 1) & n) == 0 && n > 0);
 }
 
 static inline int _align(uint16_t cap) {
@@ -363,4 +363,22 @@ void co_swap() {
 
 co_id_t co_id() {
   return env->running_id;
+}
+
+void co_join(co_id_t id) {
+  while (co_resume(id))
+    ;
+}
+
+void co_wait() {
+  bool flag = false;
+  do {
+    flag = false;
+    // 依次继续执行每一个协程，直到没有协程需要执行
+    for (int i = 0; i < env->cap; ++i) {
+      if (co_resume(i)) {
+        flag = true;
+      }
+    }
+  } while (flag);
 }
