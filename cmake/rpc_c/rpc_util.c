@@ -9,6 +9,7 @@
 
 // RPC超时时间
 static uint32_t g_rpc_timeout_sec = 0;
+static uint32_t g_rpc_magic_num = 0xceadbeef;
 
 void rpc_set_timeout(uint32_t seconds) {
   g_rpc_timeout_sec = seconds;
@@ -16,6 +17,10 @@ void rpc_set_timeout(uint32_t seconds) {
 
 uint32_t rpc_get_timeout() {
   return g_rpc_timeout_sec;
+}
+
+uint32_t rpc_get_magic_num() {
+  return g_rpc_magic_num;
 }
 
 #ifdef _WIN32
@@ -319,21 +324,31 @@ static int rsp_base_data(void* user_data,
   return 1;
 }
 
-uint32_t rpc_get_msg_len(SOCKET sock) {
-  uint32_t len = 0;
-  if (read_sock(sock, (char*)&len, 4) != 4) {
+static int rpc_read_u32(SOCKET sock, uint32_t *v) {
+  if (read_sock(sock, (char*)v, sizeof(uint32_t)) != sizeof(uint32_t)) {
     return 0;
   }
-  return len;
+  return 1;
 }
 
-int rpc_get_rsp(SOCKET sock, rpc_rsp_t* rspData) {
-  uint32_t resp_len = rpc_get_msg_len(sock);
-  if (resp_len == 0) {
+int rpc_get_rsp(SOCKET sock, rpc_rsp_t* rspData, uint32_t requireCallSN) {
+  // 1.读取魔数
+  uint32_t magic_num = rpc_get_magic_num();
+  uint32_t mn = 0;
+  if (!rpc_read_u32(sock, &mn) || mn != magic_num) {
     return -1;
   }
-
-  // 读取响应体
+  // 2.读取调用序号
+  uint32_t callSN = 0;
+  if (!rpc_read_u32(sock, &callSN)) {
+    return -1;
+  }
+  // 3.读取长度
+  uint32_t resp_len = 0;
+  if (!rpc_read_u32(sock, &resp_len)) {
+    return -1;
+  }
+  // 4.读取内容
   char* rsp = malloc(resp_len);
   if (!rsp) {
     return -1;
@@ -350,8 +365,12 @@ int rpc_get_rsp(SOCKET sock, rpc_rsp_t* rspData) {
     free(rsp);
     return -1;
   }
+  int ret = -1;
   rspData->res = result_type;
-  int ret = rpc_parse_req_args(&r, &rspData->data, rsp_base_data);
+  // 为了简单起见，这里并没处理调用序号不同的情况
+  if (requireCallSN == callSN) {
+    ret = rpc_parse_req_args(&r, &rspData->data, rsp_base_data);
+  }
   free(rsp);
   return ret;
 }

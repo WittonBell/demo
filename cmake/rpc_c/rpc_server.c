@@ -44,19 +44,39 @@ static rpc_handler_t find_handler(const char* name) {
   return NULL;
 }
 
+static int rpc_read_u32(SOCKET sock, uint32_t *v) {
+  if (read_sock(sock, (char*)v, sizeof(uint32_t)) != sizeof(uint32_t)) {
+    return 0;
+  }
+  return 1;
+}
+
 /* 处理一个客户端连接 */
 static void handle_client(SOCKET client_fd) {
   printf("accept socket:%d\n", (int)client_fd);
   // 设置超时
   rpc_set_sock_timeout(client_fd);
 
-  uint32_t msg_len = rpc_get_msg_len(client_fd);
-  if (msg_len == 0 || msg_len > MAX_MSG_LEN) {
+  // 1.读取魔数
+  uint32_t magic_num = rpc_get_magic_num();
+  uint32_t mn = 0;
+  if (!rpc_read_u32(client_fd, &mn) || mn != magic_num) {
     close_sock(client_fd);
     return;
   }
-
-  // 读取消息体
+  // 2.读取序号
+  uint32_t callSN = 0;
+  if (!rpc_read_u32(client_fd, &callSN)) {
+    close_sock(client_fd);
+    return;
+  }
+  // 3.读取长度
+  uint32_t msg_len = 0;
+  if (!rpc_read_u32(client_fd, &msg_len) || msg_len == 0 || msg_len > MAX_MSG_LEN) {
+    close_sock(client_fd);
+    return;
+  }
+  // 4.读取消息体
   char* msg = malloc(msg_len);
   if (!msg) {
     close_sock(client_fd);
@@ -99,8 +119,10 @@ static void handle_client(SOCKET client_fd) {
     handler(&r, out_buf);
   }
 
-  // 发送响应：先发送长度（4字节网络序），再发送数据
+  // 发送响应：先发送长度（4字节网络序），再发送序号，最后发送数据
   uint32_t out_len = out_buf->len;
+  write_sock(client_fd, (const char*)&magic_num, sizeof(magic_num));
+  write_sock(client_fd, (const char*)&callSN, sizeof(callSN));
   write_sock(client_fd, (const char*)&out_len, 4);
   write_sock(client_fd, out_buf->data, out_buf->len);
 

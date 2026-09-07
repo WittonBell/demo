@@ -2,7 +2,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
-#include "pbc/login.pb-c.h"
+#include "login.pb-c.h"
 #include "rpc_c.h"
 
 // 处理函数：加法
@@ -73,7 +73,7 @@ static int parse_login(void* user_data,
   }
   Netmsg__ReqLogin* login = netmsg__req_login__unpack(NULL, vlen, v);
   if (login && !strncmp(login->username, "witton", sizeof("witton")) &&
-      !memcmp(login->psw.data, "1", sizeof("1"))) {
+      !memcmp(login->psw.data, "1", 1)) {
     RPC_MAKE_RSP(RPC_OK);
     return 0;
   }

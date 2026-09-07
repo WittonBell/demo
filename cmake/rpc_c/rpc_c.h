@@ -239,6 +239,8 @@ void rpc_set_timeout(uint32_t seconds);
 uint32_t rpc_get_timeout();
 void rpc_set_sock_timeout(SOCKET sock);
 
+uint32_t rpc_get_magic_num();
+
 typedef struct {
   rpc_result_t res;
   object_t data;
@@ -248,9 +250,8 @@ void rpc_rsp_release(rpc_rsp_t* rsp);
 // 客户端调用接口（同步）
 int rpc_call(const char* host, int port, buffer_t* buf, rpc_rsp_t* result);
 
-uint32_t rpc_get_msg_len(SOCKET sock);
 int rpc_parse_req_args(reader_t* r, void* user_data, rpc_handle_arg_t handler);
-int rpc_get_rsp(SOCKET sock, rpc_rsp_t* rspData);
+int rpc_get_rsp(SOCKET sock, rpc_rsp_t* rspData, uint32_t requireCallSN);
 
 // 读取buf_len字节网络数据
 // 成功返回0

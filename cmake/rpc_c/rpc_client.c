@@ -5,6 +5,8 @@
 #include "rpc_c.h"
 
 int rpc_call(const char* host, int port, buffer_t* buf, rpc_rsp_t* result) {
+  static uint32_t callSN = 0;
+  callSN++;
   // 创建socket并连接服务器
   SOCKET sock = socket(AF_INET, SOCK_STREAM, 0);
   if (sock < 0)
@@ -30,20 +32,33 @@ int rpc_call(const char* host, int port, buffer_t* buf, rpc_rsp_t* result) {
   rpc_set_sock_timeout(sock);
   printf("client socket:%d\n", (int)sock);
 
-  // 发送请求：先4字节长度（网络序），再数据
-  int res = write_sock(sock, (const char*)&buf->len, 4);
-  if (res != 4) {
+  // 1. 发送magic
+  uint32_t magic_num = rpc_get_magic_num();
+  if (write_sock(sock, (const char*)&magic_num, sizeof(magic_num)) != sizeof(magic_num)) {
     buffer_free(buf);
     close_sock(sock);
     return -1;
   }
+  // 2. 发送调用序号
+  if (write_sock(sock, (const char*)&callSN, sizeof(callSN)) != sizeof(callSN)) {
+    buffer_free(buf);
+    close_sock(sock);
+    return -1;
+  }
+  // 3.发送请求：先4字节长度（网络序），再数据
+  if (write_sock(sock, (const char*)&buf->len, 4) != 4) {
+    buffer_free(buf);
+    close_sock(sock);
+    return -1;
+  }
+  // 4. 发送内容
   if (write_sock(sock, buf->data, buf->len) != (ssize_t)buf->len) {
     buffer_free(buf);
     close_sock(sock);
     return -1;
   }
   buffer_free(buf);
-  int ret = rpc_get_rsp(sock, result);
+  int ret = rpc_get_rsp(sock, result, callSN);
   close_sock(sock);
   return ret;
 }
